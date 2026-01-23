@@ -89,4 +89,20 @@ public class TriggerController {
                     .body("Hata: " + e.getMessage());
         }
     }
+
+
+
+    /**
+     * Belirtilen tablo için tüm otomasyon scriptlerini döndürür.
+     */
+    @GetMapping("/generate-scripts/{tableName}")
+    public ResponseEntity<Map<String, String>> getScripts(@PathVariable String tableName) {
+        try {
+            Map<String, String> response = triggerService.generateAllScripts(tableName.toUpperCase());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(null);
+        }
+    }
 }
+

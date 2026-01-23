@@ -3,9 +3,16 @@ package org.example.money_busters_springboot.service;
 import org.example.money_busters_springboot.model.TriggerMetadata;
 import org.example.money_busters_springboot.repository.TriggerRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
+
+
+import org.example.money_busters_springboot.model.TriggerMetadata;
+import org.example.money_busters_springboot.repository.TriggerRepository;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class TriggerService {
@@ -55,7 +62,19 @@ public class TriggerService {
        =========================== */
 
     public void createInsertTrigger(String schema, String tableName) {
-        String sql = triggerGeneratorService.generateInsertTriggerSql(schema, tableName);
+        String sql = triggerGeneratorService.generateFullTriggerSql(schema, tableName);
         jdbcTemplate.execute(sql);
+    }
+
+    public Map<String, String> generateAllScripts(String tableName) {
+        String schema = "UPT"; // Task gereği sabitlendi
+        Map<String, String> scripts = new HashMap<>();
+
+        // Bu metodlar TriggerGeneratorService içinde tanımlanmış olmalıdır.
+        scripts.put("main.ddl", triggerGeneratorService.generateHisTableDdl(schema, tableName));
+        scripts.put("rollback[RB].ddl", triggerGeneratorService.generateRollbackDdl(schema, tableName));
+        scripts.put("trigger.trg", triggerGeneratorService.generateFullTriggerSql(schema, tableName));
+
+        return scripts;
     }
 }
