@@ -9,9 +9,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Trigger işlemleri için REST controller
- */
 @RestController
 @RequestMapping("/api/triggers")
 public class TriggerController {
@@ -22,74 +19,116 @@ public class TriggerController {
         this.triggerService = triggerService;
     }
 
-    /**
-     * Tüm trigger'ları listeler
-     * GET /api/triggers
-     */
+    /* ===========================
+       TRIGGER LİSTELEME
+       =========================== */
+
     @GetMapping
     public ResponseEntity<List<TriggerMetadata>> getAllTriggers() {
-        List<TriggerMetadata> triggers = triggerService.getAllTriggers();
-        return ResponseEntity.ok(triggers);
+        return ResponseEntity.ok(triggerService.getAllTriggers());
     }
 
-    /**
-     * Belirli bir tabloya ait trigger'ları listeler
-     * GET /api/triggers/table/{tableName}
-     */
     @GetMapping("/table/{tableName}")
     public ResponseEntity<List<TriggerMetadata>> getTriggersByTable(@PathVariable String tableName) {
-        List<TriggerMetadata> triggers = triggerService.getTriggersByTable(tableName);
-        return ResponseEntity.ok(triggers);
+        return ResponseEntity.ok(triggerService.getTriggersByTable(tableName));
     }
 
-    /**
-     * Trigger adına göre trigger bilgisini getirir
-     * GET /api/triggers/{triggerName}
-     */
     @GetMapping("/{triggerName}")
     public ResponseEntity<TriggerMetadata> getTriggerByName(@PathVariable String triggerName) {
         TriggerMetadata trigger = triggerService.getTriggerByName(triggerName);
-        if (trigger == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(trigger);
+        return trigger == null
+                ? ResponseEntity.notFound().build()
+                : ResponseEntity.ok(trigger);
     }
 
-    /**
-     * Trigger'ı aktif yapar
-     * POST /api/triggers/{triggerName}/enable
-     */
+    /* ===========================
+       TRIGGER ENABLE / DISABLE
+       =========================== */
+
     @PostMapping("/{triggerName}/enable")
     public ResponseEntity<Map<String, String>> enableTrigger(@PathVariable String triggerName) {
         Map<String, String> response = new HashMap<>();
         try {
             triggerService.enableTrigger(triggerName);
             response.put("status", "SUCCESS");
-            response.put("message", triggerName + " trigger'ı aktif edildi.");
+            response.put("message", triggerName + " aktif edildi");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             response.put("status", "ERROR");
-            response.put("message", "Trigger aktif edilemedi: " + e.getMessage());
+            response.put("message", e.getMessage());
             return ResponseEntity.status(500).body(response);
         }
     }
 
-    /**
-     * Trigger'ı pasif yapar
-     * POST /api/triggers/{triggerName}/disable
-     */
     @PostMapping("/{triggerName}/disable")
     public ResponseEntity<Map<String, String>> disableTrigger(@PathVariable String triggerName) {
         Map<String, String> response = new HashMap<>();
         try {
             triggerService.disableTrigger(triggerName);
             response.put("status", "SUCCESS");
-            response.put("message", triggerName + " trigger'ı pasif edildi.");
+            response.put("message", triggerName + " pasif edildi");
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             response.put("status", "ERROR");
-            response.put("message", "Trigger pasif edilemedi: " + e.getMessage());
+            response.put("message", e.getMessage());
             return ResponseEntity.status(500).body(response);
         }
     }
+
+    /* ===========================
+       TRIGGER OLUŞTURMA (ASIL İŞ)
+       =========================== */
+
+    @PostMapping("/create/{tableName}")
+    public ResponseEntity<String> createInsertTrigger(@PathVariable String tableName) {
+        try {
+            triggerService.createInsertTrigger("UPT", tableName.toUpperCase());
+            return ResponseEntity.ok("Trigger oluşturuldu: TRG_" + tableName);
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body("Hata: " + e.getMessage());
+        }
+    }
+
+
+
+    /**
+     * Belirtilen tablo için tüm otomasyon scriptlerini döndürür.
+     */
+    @GetMapping("/generate-scripts/{tableName}")
+    public ResponseEntity<Map<String, String>> getScripts(@PathVariable String tableName) {
+        try {
+            Map<String, String> response = triggerService.generateAllScripts(tableName.toUpperCase());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(null);
+        }
+    }
+    // TriggerController.java içine eklenebilir
+
+    @GetMapping("/download-script/{tableName}/{type}")
+    public ResponseEntity<byte[]> downloadScript(@PathVariable String tableName, @PathVariable String type) {
+        Map<String, String> scripts = triggerService.generateAllScripts(tableName.toUpperCase());
+        String content = "";
+        String fileName = tableName.toLowerCase();
+
+        // İstenen türe göre içeriği seçiyoruz
+        if ("main".equalsIgnoreCase(type)) {
+            content = scripts.get("main.ddl");
+            fileName += ".ddl";
+        } else if ("rollback".equalsIgnoreCase(type)) {
+            content = scripts.get("rollback[RB].ddl");
+            fileName += "[RB].ddl";
+        } else if ("trigger".equalsIgnoreCase(type)) {
+            content = scripts.get("trigger.trg");
+            fileName += ".trg";
+        }
+
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + fileName)
+                .contentType(org.springframework.http.MediaType.TEXT_PLAIN)
+                .body(content.getBytes());
+    }
+
 }
+

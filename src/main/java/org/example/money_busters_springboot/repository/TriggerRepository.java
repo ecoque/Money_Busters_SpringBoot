@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Trigger işlemleri için repository sınıfı
@@ -33,7 +34,16 @@ public class TriggerRepository {
 
         return jdbcTemplate.query(sql, new TriggerRowMapper());
     }
+    public void execute(String sql) {
+        jdbcTemplate.execute(sql);
+    }
 
+
+    // Oracle'daki giriş yapmış kullanıcıya ait tüm tabloları getirir
+    public List<String> findAllTables() {
+        String sql = "SELECT TABLE_NAME FROM USER_TABLES ORDER BY TABLE_NAME";
+        return jdbcTemplate.queryForList(sql, String.class);
+    }
     /**
      * Belirli bir tabloya ait trigger'ları listeler
      */
@@ -86,5 +96,27 @@ public class TriggerRepository {
                 rs.getString("TRIGGER_BODY")
             );
         }
+    }
+    // Tüm şemaları getirir
+    public List<String> findAllSchemas() {
+        String sql = "SELECT DISTINCT owner FROM all_tables ORDER BY owner";
+        return jdbcTemplate.queryForList(sql, String.class);
+    }
+
+    // Seçilen şemaya ait tabloları getirir
+    public List<String> findTablesBySchema(String schemaName) {
+        String sql = "SELECT table_name FROM all_tables WHERE owner = ? ORDER BY table_name";
+        return jdbcTemplate.queryForList(sql, String.class, schemaName.toUpperCase());
+    }
+
+    // Tablonun kolon bilgilerini getirir (HIS tablosunu oluşturmak için kritik)
+    public List<Map<String, Object>> getTableColumns(String schemaName, String tableName) {
+        String sql = """
+        SELECT column_name, data_type, data_length, data_precision, data_scale, nullable 
+        FROM all_tab_columns 
+        WHERE owner = ? AND table_name = ? 
+        ORDER BY column_id
+        """;
+        return jdbcTemplate.queryForList(sql, schemaName.toUpperCase(), tableName.toUpperCase());
     }
 }
