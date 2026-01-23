@@ -104,5 +104,31 @@ public class TriggerController {
             return ResponseEntity.status(500).body(null);
         }
     }
+    // TriggerController.java içine eklenebilir
+
+    @GetMapping("/download-script/{tableName}/{type}")
+    public ResponseEntity<byte[]> downloadScript(@PathVariable String tableName, @PathVariable String type) {
+        Map<String, String> scripts = triggerService.generateAllScripts(tableName.toUpperCase());
+        String content = "";
+        String fileName = tableName.toLowerCase();
+
+        // İstenen türe göre içeriği seçiyoruz
+        if ("main".equalsIgnoreCase(type)) {
+            content = scripts.get("main.ddl");
+            fileName += ".ddl";
+        } else if ("rollback".equalsIgnoreCase(type)) {
+            content = scripts.get("rollback[RB].ddl");
+            fileName += "[RB].ddl";
+        } else if ("trigger".equalsIgnoreCase(type)) {
+            content = scripts.get("trigger.trg");
+            fileName += ".trg";
+        }
+
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + fileName)
+                .contentType(org.springframework.http.MediaType.TEXT_PLAIN)
+                .body(content.getBytes());
+    }
+
 }
 
