@@ -7,9 +7,12 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
+import javafx.scene.image.WritableImage;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.FileChooser;
@@ -49,6 +52,17 @@ public class TriggerCreationApp extends Application {
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
         primaryStage.setTitle("Trigger Oluşturma");
+        
+        // Modern ve minimal uygulama ikonu oluştur
+        try {
+            Image appIcon = createAppIcon();
+            if (appIcon != null) {
+                primaryStage.getIcons().add(appIcon);
+            }
+        } catch (Exception e) {
+            System.err.println("İkon oluşturma hatası: " + e.getMessage());
+            e.printStackTrace();
+        }
 
         // Ana layout
         VBox mainLayout = new VBox(15);
@@ -258,6 +272,10 @@ public class TriggerCreationApp extends Application {
                         "Sadece trigger yeniden oluşturulacak.\n\n" +
                         "Devam etmek istiyor musunuz?"
                     );
+                    
+                    // Dialog'a ikon ekle
+                    Stage confirmStage = (Stage) confirmAlert.getDialogPane().getScene().getWindow();
+                    confirmStage.getIcons().add(createAlertIcon(Alert.AlertType.CONFIRMATION));
                     
                     ButtonType yesButton = new ButtonType("Evet, Devam Et");
                     ButtonType noButton = new ButtonType("İptal", ButtonBar.ButtonData.CANCEL_CLOSE);
@@ -529,6 +547,10 @@ public class TriggerCreationApp extends Application {
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
         dialog.getDialogPane().setPrefWidth(400);
         
+        // Dialog'a başarı ikonu ekle
+        Stage dialogStage = (Stage) dialog.getDialogPane().getScene().getWindow();
+        dialogStage.getIcons().add(createSuccessIcon());
+        
         dialog.showAndWait();
     }
     
@@ -642,6 +664,11 @@ public class TriggerCreationApp extends Application {
         alert.setTitle(title);
         alert.setHeaderText(null);
         alert.setContentText(message);
+        
+        // Dialog'a ikon ekle
+        Stage alertStage = (Stage) alert.getDialogPane().getScene().getWindow();
+        alertStage.getIcons().add(createAlertIcon(type));
+        
         alert.showAndWait();
     }
 
@@ -858,6 +885,260 @@ public class TriggerCreationApp extends Application {
      */
     public static void launchApp() {
         launch();
+    }
+    
+    /**
+     * Modern ve minimal uygulama ikonu oluşturur
+     * Yeşil yuvarlak zemin üzerinde beyaz veritabanı sembolü
+     */
+    private Image createAppIcon() {
+        int size = 32;
+        WritableImage image = new WritableImage(size, size);
+        var writer = image.getPixelWriter();
+        
+        Color green = Color.web("#4CAF50");
+        Color darkGreen = Color.web("#388E3C");
+        Color white = Color.WHITE;
+        Color transparent = Color.TRANSPARENT;
+        
+        double centerX = size / 2.0;
+        double centerY = size / 2.0;
+        double radius = size / 2.0 - 1;
+        
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                double dx = x - centerX;
+                double dy = y - centerY;
+                double dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist <= radius) {
+                    // Daire içinde
+                    if (dist > radius - 1.5) {
+                        // Kenar - koyu yeşil
+                        writer.setColor(x, y, darkGreen);
+                    } else {
+                        // İç kısım - yeşil arka plan
+                        // Veritabanı sembolü çiz
+                        boolean isDbSymbol = isInDatabaseSymbol(x, y, size);
+                        if (isDbSymbol) {
+                            writer.setColor(x, y, white);
+                        } else {
+                            writer.setColor(x, y, green);
+                        }
+                    }
+                } else {
+                    writer.setColor(x, y, transparent);
+                }
+            }
+        }
+        
+        return image;
+    }
+    
+    /**
+     * Verilen koordinatın veritabanı sembolü içinde olup olmadığını kontrol eder
+     */
+    private boolean isInDatabaseSymbol(int x, int y, int size) {
+        double scale = size / 32.0;
+        
+        // Veritabanı silindiri boyutları (32x32 için)
+        double left = 9 * scale;
+        double right = 23 * scale;
+        double top = 8 * scale;
+        double bottom = 24 * scale;
+        double ellipseRx = (right - left) / 2.0;
+        double ellipseRy = 3 * scale;
+        double centerX = (left + right) / 2.0;
+        
+        // Üst elips
+        double topEllipseCy = top;
+        double dxTop = (x - centerX) / ellipseRx;
+        double dyTop = (y - topEllipseCy) / ellipseRy;
+        if (dxTop * dxTop + dyTop * dyTop <= 1) {
+            return true;
+        }
+        
+        // Alt elips
+        double bottomEllipseCy = bottom;
+        double dxBottom = (x - centerX) / ellipseRx;
+        double dyBottom = (y - bottomEllipseCy) / ellipseRy;
+        if (dxBottom * dxBottom + dyBottom * dyBottom <= 1) {
+            return true;
+        }
+        
+        // Sol ve sağ kenarlar
+        if (y >= top && y <= bottom) {
+            if (Math.abs(x - left) <= 1.5 * scale || Math.abs(x - right) <= 1.5 * scale) {
+                return true;
+            }
+        }
+        
+        // Orta elips çizgisi
+        double midY = (top + bottom) / 2.0;
+        double dxMid = (x - centerX) / ellipseRx;
+        double dyMid = (y - midY) / ellipseRy;
+        double distMid = dxMid * dxMid + dyMid * dyMid;
+        if (distMid <= 1 && distMid >= 0.6) {
+            return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Alert tipine göre uygun ikon oluşturur
+     */
+    private Image createAlertIcon(Alert.AlertType type) {
+        int size = 32;
+        WritableImage image = new WritableImage(size, size);
+        var writer = image.getPixelWriter();
+        
+        Color bgColor;
+        Color borderColor;
+        
+        switch (type) {
+            case ERROR:
+                bgColor = Color.web("#F44336");      // Kırmızı
+                borderColor = Color.web("#C62828");
+                break;
+            case WARNING:
+                bgColor = Color.web("#FF9800");      // Turuncu
+                borderColor = Color.web("#EF6C00");
+                break;
+            case INFORMATION:
+                bgColor = Color.web("#2196F3");      // Mavi
+                borderColor = Color.web("#1565C0");
+                break;
+            case CONFIRMATION:
+                bgColor = Color.web("#9C27B0");      // Mor
+                borderColor = Color.web("#6A1B9A");
+                break;
+            default:
+                bgColor = Color.web("#4CAF50");      // Yeşil
+                borderColor = Color.web("#388E3C");
+        }
+        
+        Color white = Color.WHITE;
+        Color transparent = Color.TRANSPARENT;
+        
+        double centerX = size / 2.0;
+        double centerY = size / 2.0;
+        double radius = size / 2.0 - 1;
+        
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                double dx = x - centerX;
+                double dy = y - centerY;
+                double dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist <= radius) {
+                    if (dist > radius - 1.5) {
+                        writer.setColor(x, y, borderColor);
+                    } else {
+                        // Sembol çiz (ünlem işareti)
+                        boolean isSymbol = isAlertSymbol(x, y, size, type);
+                        writer.setColor(x, y, isSymbol ? white : bgColor);
+                    }
+                } else {
+                    writer.setColor(x, y, transparent);
+                }
+            }
+        }
+        
+        return image;
+    }
+    
+    /**
+     * Alert sembolü (ünlem, soru işareti vb.) kontrolü
+     */
+    private boolean isAlertSymbol(int x, int y, int size, Alert.AlertType type) {
+        double centerX = size / 2.0;
+        
+        if (type == Alert.AlertType.CONFIRMATION) {
+            // Soru işareti
+            // Üst kısım - eğri
+            if (y >= 8 && y <= 14) {
+                double dx = Math.abs(x - centerX);
+                if (dx <= 5 && dx >= 2) return true;
+            }
+            // Orta dikey çizgi
+            if (y >= 14 && y <= 19 && Math.abs(x - centerX) <= 2) return true;
+            // Alt nokta
+            if (y >= 22 && y <= 25 && Math.abs(x - centerX) <= 2) return true;
+        } else {
+            // Ünlem işareti (ERROR, WARNING, INFO için)
+            // Üst dikey çizgi
+            if (y >= 8 && y <= 18 && Math.abs(x - centerX) <= 2) return true;
+            // Alt nokta
+            if (y >= 22 && y <= 25 && Math.abs(x - centerX) <= 2) return true;
+        }
+        
+        return false;
+    }
+    
+    /**
+     * Başarı (success) dialog'u için yeşil tik ikonu oluşturur
+     */
+    private Image createSuccessIcon() {
+        int size = 32;
+        WritableImage image = new WritableImage(size, size);
+        var writer = image.getPixelWriter();
+        
+        Color green = Color.web("#4CAF50");
+        Color darkGreen = Color.web("#388E3C");
+        Color white = Color.WHITE;
+        Color transparent = Color.TRANSPARENT;
+        
+        double centerX = size / 2.0;
+        double centerY = size / 2.0;
+        double radius = size / 2.0 - 1;
+        
+        for (int y = 0; y < size; y++) {
+            for (int x = 0; x < size; x++) {
+                double dx = x - centerX;
+                double dy = y - centerY;
+                double dist = Math.sqrt(dx * dx + dy * dy);
+                
+                if (dist <= radius) {
+                    if (dist > radius - 1.5) {
+                        writer.setColor(x, y, darkGreen);
+                    } else {
+                        // Tik işareti çiz
+                        boolean isTick = isTickSymbol(x, y, size);
+                        writer.setColor(x, y, isTick ? white : green);
+                    }
+                } else {
+                    writer.setColor(x, y, transparent);
+                }
+            }
+        }
+        
+        return image;
+    }
+    
+    /**
+     * Tik işareti kontrolü
+     */
+    private boolean isTickSymbol(int x, int y, int size) {
+        // Tik işareti: sol alt köşeden ortaya, oradan sağ üste
+        // Sol kol: (8,16) -> (13,21)
+        // Sağ kol: (13,21) -> (24,10)
+        
+        // Sol kol
+        double leftSlope = (21.0 - 16.0) / (13.0 - 8.0); // 1.0
+        if (x >= 8 && x <= 14) {
+            double expectedY = 16 + (x - 8) * leftSlope;
+            if (Math.abs(y - expectedY) <= 2.5) return true;
+        }
+        
+        // Sağ kol
+        double rightSlope = (10.0 - 21.0) / (24.0 - 13.0); // -1.0
+        if (x >= 12 && x <= 24) {
+            double expectedY = 21 + (x - 13) * rightSlope;
+            if (Math.abs(y - expectedY) <= 2.5) return true;
+        }
+        
+        return false;
     }
 
     /**
