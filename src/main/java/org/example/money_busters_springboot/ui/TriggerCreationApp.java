@@ -35,11 +35,15 @@ import java.util.Map;
 public class TriggerCreationApp extends Application {
 
     // UI bileşenleri
-    private TextField schemaTextField;
+    private ComboBox<String> schemaComboBox;
     private ComboBox<String> tableComboBox;
     private Button createTriggerButton;
     private Button refreshButton;
     private Stage primaryStage;
+    
+    // Checkbox'lar
+    private RadioButton dbRadioButton;
+    private RadioButton scriptOnlyRadioButton;
 
     @Override
     public void start(Stage primaryStage) {
@@ -47,14 +51,40 @@ public class TriggerCreationApp extends Application {
         primaryStage.setTitle("Trigger Oluşturma");
 
         // Ana layout
-        VBox mainLayout = new VBox(20);
+        VBox mainLayout = new VBox(15);
         mainLayout.setPadding(new Insets(20, 30, 20, 30));
         mainLayout.setStyle("-fx-background-color: #f5f5f5;");
 
+        // Üst kısım: Başlık + RadioButton'lar
+        HBox topBox = new HBox();
+        topBox.setAlignment(Pos.CENTER_LEFT);
+        
         // Başlık
         Label titleLabel = new Label("Trigger Oluşturma");
         titleLabel.setFont(Font.font("System", FontWeight.BOLD, 18));
         titleLabel.setStyle("-fx-text-fill: #333333;");
+        
+        // Sağ üst köşe için RadioButton'lar
+        HBox radioBox = new HBox(10);
+        radioBox.setAlignment(Pos.CENTER_RIGHT);
+        radioBox.setPadding(new Insets(0, 0, 0, 20));
+        
+        ToggleGroup modeGroup = new ToggleGroup();
+        
+        dbRadioButton = new RadioButton("Database'e Kaydet");
+        dbRadioButton.setToggleGroup(modeGroup);
+        dbRadioButton.setSelected(true);
+        dbRadioButton.setStyle("-fx-font-size: 11px;");
+        
+        scriptOnlyRadioButton = new RadioButton("Sadece Script");
+        scriptOnlyRadioButton.setToggleGroup(modeGroup);
+        scriptOnlyRadioButton.setStyle("-fx-font-size: 11px;");
+        
+        radioBox.getChildren().addAll(dbRadioButton, scriptOnlyRadioButton);
+        
+        // Spacer ekle (başlık solda, radiobutton'lar sağda)
+        HBox.setHgrow(titleLabel, javafx.scene.layout.Priority.ALWAYS);
+        topBox.getChildren().addAll(titleLabel, radioBox);
 
         // Form alanları için Grid
         GridPane formGrid = new GridPane();
@@ -62,13 +92,20 @@ public class TriggerCreationApp extends Application {
         formGrid.setVgap(15);
         formGrid.setAlignment(Pos.CENTER_LEFT);
 
-        // Schema Label ve TextField
+        // Schema Label ve ComboBox
         Label schemaLabel = new Label("Schema:");
         schemaLabel.setFont(Font.font("System", FontWeight.NORMAL, 12));
-        schemaTextField = new TextField("UPT");
-        schemaTextField.setPrefWidth(250);
-        schemaTextField.setEditable(false);
-        schemaTextField.setStyle("-fx-background-color: #ffffff; -fx-border-color: #cccccc; -fx-border-radius: 3;");
+        schemaComboBox = new ComboBox<>();
+        schemaComboBox.setPrefWidth(250);
+        schemaComboBox.setPromptText("Şema seçiniz...");
+        schemaComboBox.setStyle("-fx-background-color: #ffffff; -fx-border-color: #cccccc; -fx-border-radius: 3;");
+        
+        // Schema değiştiğinde tabloları yükle
+        schemaComboBox.setOnAction(e -> {
+            if (schemaComboBox.getValue() != null) {
+                loadTables(schemaComboBox.getValue());
+            }
+        });
 
         // Table Label ve ComboBox
         Label tableLabel = new Label("Table:");
@@ -80,7 +117,7 @@ public class TriggerCreationApp extends Application {
 
         // Grid'e elemanları ekle
         formGrid.add(schemaLabel, 0, 0);
-        formGrid.add(schemaTextField, 1, 0);
+        formGrid.add(schemaComboBox, 1, 0);
         formGrid.add(tableLabel, 0, 1);
         formGrid.add(tableComboBox, 1, 1);
 
@@ -159,72 +196,220 @@ public class TriggerCreationApp extends Application {
         );
 
         // Event handlers
-        refreshButton.setOnAction(e -> loadTables());
-        
-        createTriggerButton.setOnAction(e -> {
-            String selectedTable = tableComboBox.getValue();
-            
-            if (selectedTable == null || selectedTable.isEmpty()) {
-                showAlert(Alert.AlertType.WARNING, "Uyarı", "Lütfen bir tablo seçiniz.");
-                return;
-            }
-            
-            // Otomatik isimler
-            String schema = schemaTextField.getText();
-            String triggerName = "TRG_" + selectedTable.toUpperCase();
-            String hisTableName = selectedTable.toUpperCase() + "_HIS";
-            String seqName = "SEQ_" + hisTableName;
-            
-            // Trigger, History tablosu ve Sequence oluştur
-            try {
-                // Önce kolonları al (DDL oluşturmak için lazım olacak)
-                List<Map<String, Object>> columns = getTableColumnsForDdl(schema, selectedTable);
-                
-                createTriggerWithHistoryTable(schema, selectedTable, triggerName);
-                
-                // 4 butonlu özel başarı dialogunu göster
-                showSuccessDialogWithDownloadButtons(schema, selectedTable, triggerName, hisTableName, seqName, columns);
-                    
-                // Tabloları yenile (artık HIS tablosu olduğu için listeden çıkacak)
-                loadTables();
-            } catch (Exception ex) {
-                ex.printStackTrace();
-                showAlert(Alert.AlertType.ERROR, "Hata", 
-                    "Trigger oluşturulurken hata oluştu:\n" + ex.getMessage());
+        refreshButton.setOnAction(e -> {
+            loadSchemas();
+            if (schemaComboBox.getValue() != null) {
+                loadTables(schemaComboBox.getValue());
             }
         });
+        
+        createTriggerButton.setOnAction(e -> handleCreateTrigger());
 
         // Ana layout'a ekle
-        mainLayout.getChildren().addAll(titleLabel, formGrid, buttonBox);
+        mainLayout.getChildren().addAll(topBox, formGrid, buttonBox);
 
-        // Tabloları yükle
-        loadTables();
+        // Şemaları ve tabloları yükle
+        loadSchemas();
 
         // Scene oluştur
-        Scene scene = new Scene(mainLayout, 380, 200);
+        Scene scene = new Scene(mainLayout, 450, 220);
         primaryStage.setScene(scene);
         primaryStage.setResizable(false);
         primaryStage.show();
     }
+    
+    /**
+     * Trigger oluştur butonuna basıldığında çalışır
+     */
+    private void handleCreateTrigger() {
+        String selectedTable = tableComboBox.getValue();
+        String schema = schemaComboBox.getValue();
+        
+        if (schema == null || schema.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "Uyarı", "Lütfen bir şema seçiniz.");
+            return;
+        }
+        
+        if (selectedTable == null || selectedTable.isEmpty()) {
+            showAlert(Alert.AlertType.WARNING, "Uyarı", "Lütfen bir tablo seçiniz.");
+            return;
+        }
+        
+        // Otomatik isimler
+        String triggerName = "TRG_" + selectedTable.toUpperCase();
+        String hisTableName = selectedTable.toUpperCase() + "_HIS";
+        String seqName = "SEQ_" + hisTableName;
+        
+        try {
+            // Önce kolonları al (DDL oluşturmak için lazım olacak)
+            List<Map<String, Object>> columns = getTableColumnsForDdl(schema, selectedTable);
+            
+            if (dbRadioButton.isSelected()) {
+                // Database'e kaydet modu
+                // Önce HIS tablosu var mı kontrol et
+                if (checkIfHistoryTableExists(schema, hisTableName)) {
+                    // Uyarı göster
+                    Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+                    confirmAlert.setTitle("Uyarı");
+                    confirmAlert.setHeaderText("Bu trigger daha önce oluşturulmuş!");
+                    confirmAlert.setContentText(
+                        "'" + hisTableName + "' tablosu zaten mevcut.\n\n" +
+                        "Mevcut HIS tablosuna dokunulmayacak, veriler korunacak.\n" +
+                        "Sadece trigger yeniden oluşturulacak.\n\n" +
+                        "Devam etmek istiyor musunuz?"
+                    );
+                    
+                    ButtonType yesButton = new ButtonType("Evet, Devam Et");
+                    ButtonType noButton = new ButtonType("İptal", ButtonBar.ButtonData.CANCEL_CLOSE);
+                    confirmAlert.getButtonTypes().setAll(yesButton, noButton);
+                    
+                    confirmAlert.showAndWait().ifPresent(response -> {
+                        if (response == yesButton) {
+                            try {
+                                // Sadece trigger'ı yeniden oluştur (HIS tablosuna dokunma)
+                                recreateTriggerOnly(schema, selectedTable, triggerName, columns);
+                                showSuccessDialogWithDownloadButtons(schema, selectedTable, triggerName, hisTableName, seqName, columns);
+                            } catch (Exception ex) {
+                                ex.printStackTrace();
+                                showAlert(Alert.AlertType.ERROR, "Hata", "Trigger oluşturulurken hata: " + ex.getMessage());
+                            }
+                        }
+                    });
+                    return;
+                }
+                
+                // HIS tablosu yoksa normal akış
+                createTriggerWithHistoryTable(schema, selectedTable, triggerName);
+                showSuccessDialogWithDownloadButtons(schema, selectedTable, triggerName, hisTableName, seqName, columns);
+                loadTables(schema);
+                
+            } else {
+                // Sadece script modu - Database'e hiç dokunma
+                showSuccessDialogWithDownloadButtons(schema, selectedTable, triggerName, hisTableName, seqName, columns);
+            }
+            
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            showAlert(Alert.AlertType.ERROR, "Hata", 
+                "İşlem sırasında hata oluştu:\n" + ex.getMessage());
+        }
+    }
+    
+    /**
+     * HIS tablosunun var olup olmadığını kontrol eder
+     */
+    private boolean checkIfHistoryTableExists(String schema, String hisTableName) {
+        String sql = "SELECT COUNT(*) FROM ALL_TABLES WHERE OWNER = ? AND TABLE_NAME = ?";
+        
+        try (Connection conn = DriverManager.getConnection(
+                DatabaseConfigLoader.getUrl(),
+                DatabaseConfigLoader.getUsername(),
+                DatabaseConfigLoader.getPassword());
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            
+            pstmt.setString(1, schema.toUpperCase());
+            pstmt.setString(2, hisTableName.toUpperCase());
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt(1) > 0;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+    
+    /**
+     * Sadece trigger'ı yeniden oluşturur (HIS tablosuna dokunmaz)
+     */
+    private void recreateTriggerOnly(String schema, String tableName, String triggerName, 
+                                      List<Map<String, Object>> columns) throws Exception {
+        try (Connection conn = DriverManager.getConnection(
+                DatabaseConfigLoader.getUrl(),
+                DatabaseConfigLoader.getUsername(),
+                DatabaseConfigLoader.getPassword())) {
+            
+            // Önce varsa trigger'ı sil
+            dropIfExists(conn, "TRIGGER", schema, triggerName);
+            
+            // Trigger'ı yeniden oluştur
+            String triggerSql = generateTriggerSql(schema, tableName, triggerName, columns);
+            try (java.sql.Statement stmt = conn.createStatement()) {
+                stmt.execute(triggerSql);
+            }
+            System.out.println("Trigger yeniden oluşturuldu: " + triggerName);
+        }
+    }
+    
+    /**
+     * Veritabanındaki şemaları yükler
+     */
+    private void loadSchemas() {
+        List<String> schemas = new ArrayList<>();
+        
+        // Önemli şemaları getir (sistem şemalarını hariç tut)
+        String sql = "SELECT DISTINCT OWNER FROM ALL_TABLES " +
+                     "WHERE OWNER NOT IN ('SYS', 'SYSTEM', 'DBSNMP', 'OUTLN', 'APPQOSSYS', " +
+                     "'DBSFWUSER', 'GGSYS', 'ANONYMOUS', 'CTXSYS', 'DVSYS', 'DVF', " +
+                     "'GSMADMIN_INTERNAL', 'MDSYS', 'OLAPSYS', 'ORDDATA', 'ORDSYS', " +
+                     "'ORDPLUGINS', 'SI_INFORMTN_SCHEMA', 'WMSYS', 'XDB', 'LBACSYS', " +
+                     "'OJVMSYS', 'APEX_PUBLIC_USER', 'APEX_040000', 'FLOWS_FILES') " +
+                     "ORDER BY OWNER";
+        
+        try (Connection conn = DriverManager.getConnection(
+                DatabaseConfigLoader.getUrl(),
+                DatabaseConfigLoader.getUsername(),
+                DatabaseConfigLoader.getPassword());
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+            
+            while (rs.next()) {
+                schemas.add(rs.getString("OWNER"));
+            }
+            
+            ObservableList<String> schemaList = FXCollections.observableArrayList(schemas);
+            schemaComboBox.setItems(schemaList);
+            
+            // UPT varsa onu seç, yoksa ilkini seç
+            if (schemas.contains("UPT")) {
+                schemaComboBox.setValue("UPT");
+                loadTables("UPT");
+            } else if (!schemas.isEmpty()) {
+                schemaComboBox.setValue(schemas.get(0));
+                loadTables(schemas.get(0));
+            }
+            
+            System.out.println("Yüklenen şema sayısı: " + schemas.size());
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+            showAlert(Alert.AlertType.ERROR, "Hata", "Şemalar yüklenirken hata oluştu:\n" + e.getMessage());
+        }
+    }
 
     /**
-     * UPT şemasındaki tabloları yükler (HIS içermeyen tablolar)
+     * Belirtilen şemadaki tabloları yükler (HIS içermeyen tablolar)
      */
-    private void loadTables() {
+    private void loadTables(String schema) {
         List<String> tables = new ArrayList<>();
         
-        String sql = "SELECT TABLE_NAME FROM ALL_TABLES WHERE OWNER = 'UPT' " +
+        String sql = "SELECT TABLE_NAME FROM ALL_TABLES WHERE OWNER = ? " +
                      "AND TABLE_NAME NOT LIKE '%HIS%' ORDER BY TABLE_NAME";
         
         try (Connection conn = DriverManager.getConnection(
                 DatabaseConfigLoader.getUrl(), 
                 DatabaseConfigLoader.getUsername(), 
                 DatabaseConfigLoader.getPassword());
-             PreparedStatement pstmt = conn.prepareStatement(sql);
-             ResultSet rs = pstmt.executeQuery()) {
+             PreparedStatement pstmt = conn.prepareStatement(sql)) {
             
-            while (rs.next()) {
-                tables.add(rs.getString("TABLE_NAME"));
+            pstmt.setString(1, schema.toUpperCase());
+            
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    tables.add(rs.getString("TABLE_NAME"));
+                }
             }
             
             ObservableList<String> tableList = FXCollections.observableArrayList(tables);
@@ -232,9 +417,12 @@ public class TriggerCreationApp extends Application {
             
             if (!tables.isEmpty()) {
                 tableComboBox.setValue(tables.get(0));
+            } else {
+                tableComboBox.setValue(null);
+                tableComboBox.setPromptText("Tablo bulunamadı...");
             }
             
-            System.out.println("Yüklenen tablo sayısı: " + tables.size());
+            System.out.println("Yüklenen tablo sayısı (" + schema + "): " + tables.size());
             
         } catch (Exception e) {
             e.printStackTrace();
@@ -251,7 +439,13 @@ public class TriggerCreationApp extends Application {
         // Özel dialog oluştur
         Dialog<Void> dialog = new Dialog<>();
         dialog.setTitle("Başarılı");
-        dialog.setHeaderText("Trigger ve History tablosu başarıyla oluşturuldu!");
+        
+        // Header'ı moda göre ayarla
+        if (scriptOnlyRadioButton.isSelected()) {
+            dialog.setHeaderText("Script'ler başarıyla oluşturuldu!");
+        } else {
+            dialog.setHeaderText("Trigger ve History tablosu başarıyla oluşturuldu!");
+        }
         
         // İçerik
         VBox content = new VBox(15);
@@ -462,7 +656,7 @@ public class TriggerCreationApp extends Application {
      * Schema adını döndürür
      */
     public String getSchemaName() {
-        return schemaTextField.getText();
+        return schemaComboBox.getValue();
     }
 
     /**
