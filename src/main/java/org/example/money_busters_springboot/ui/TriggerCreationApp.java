@@ -179,7 +179,7 @@ public class TriggerCreationApp extends Application {
                 return;
             }
             
-            // TODO: Arkadaşınız burada trigger oluşturma ve history tablosu işlemlerini yapacak
+            // TODO: Kerem burada trigger oluşturma ve history tablosu işlemlerini yapacak
             System.out.println("Trigger oluşturulacak: " + triggerName + " - Tablo: " + selectedTable);
             showAlert(Alert.AlertType.INFORMATION, "Bilgi", 
                 "Trigger oluşturma işlemi başlatılacak.\n" +
