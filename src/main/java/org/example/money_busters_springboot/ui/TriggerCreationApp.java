@@ -14,6 +14,8 @@ import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
 import javafx.stage.Stage;
 
+import org.example.money_busters_springboot.config.DatabaseConfigLoader;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -25,11 +27,6 @@ import java.util.List;
  * Trigger Oluşturma JavaFX Uygulaması
  */
 public class TriggerCreationApp extends Application {
-
-    // Database bağlantı bilgileri
-    private static final String DB_URL = "jdbc:oracle:thin:@localhost:1521/XEPDB1";
-    private static final String DB_USER = "UPT";
-    private static final String DB_PASSWORD = "7hSYpeSHXZH5";
 
     // UI bileşenleri
     private TextField schemaTextField;
@@ -212,7 +209,10 @@ public class TriggerCreationApp extends Application {
         String sql = "SELECT TABLE_NAME FROM ALL_TABLES WHERE OWNER = 'UPT' " +
                      "AND TABLE_NAME NOT LIKE '%HIS%' ORDER BY TABLE_NAME";
         
-        try (Connection conn = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+        try (Connection conn = DriverManager.getConnection(
+                DatabaseConfigLoader.getUrl(), 
+                DatabaseConfigLoader.getUsername(), 
+                DatabaseConfigLoader.getPassword());
              PreparedStatement pstmt = conn.prepareStatement(sql);
              ResultSet rs = pstmt.executeQuery()) {
             
