@@ -12,9 +12,14 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.scene.text.Font;
 import javafx.scene.text.FontWeight;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
 import org.example.money_busters_springboot.config.DatabaseConfigLoader;
+
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -34,9 +39,11 @@ public class TriggerCreationApp extends Application {
     private ComboBox<String> tableComboBox;
     private Button createTriggerButton;
     private Button refreshButton;
+    private Stage primaryStage;
 
     @Override
     public void start(Stage primaryStage) {
+        this.primaryStage = primaryStage;
         primaryStage.setTitle("Trigger Oluşturma");
 
         // Ana layout
@@ -170,13 +177,13 @@ public class TriggerCreationApp extends Application {
             
             // Trigger, History tablosu ve Sequence oluştur
             try {
+                // Önce kolonları al (DDL oluşturmak için lazım olacak)
+                List<Map<String, Object>> columns = getTableColumnsForDdl(schema, selectedTable);
+                
                 createTriggerWithHistoryTable(schema, selectedTable, triggerName);
-                showAlert(Alert.AlertType.INFORMATION, "Başarılı", 
-                    "Trigger ve History tablosu başarıyla oluşturuldu!\n\n" +
-                    "Tablo: " + selectedTable + "\n" +
-                    "Trigger: " + triggerName + "\n" +
-                    "History Tablosu: " + hisTableName + "\n" +
-                    "Sequence: " + seqName);
+                
+                // 4 butonlu özel başarı dialogunu göster
+                showSuccessDialogWithDownloadButtons(schema, selectedTable, triggerName, hisTableName, seqName, columns);
                     
                 // Tabloları yenile (artık HIS tablosu olduğu için listeden çıkacak)
                 loadTables();
@@ -232,6 +239,204 @@ public class TriggerCreationApp extends Application {
         } catch (Exception e) {
             e.printStackTrace();
             showAlert(Alert.AlertType.ERROR, "Hata", "Tablolar yüklenirken hata oluştu:\n" + e.getMessage());
+        }
+    }
+
+    /**
+     * 4 butonlu başarı dialogunu gösterir - DDL dosyalarını indirmek için
+     */
+    private void showSuccessDialogWithDownloadButtons(String schema, String tableName, String triggerName, 
+                                                       String hisTableName, String seqName, 
+                                                       List<Map<String, Object>> columns) {
+        // Özel dialog oluştur
+        Dialog<Void> dialog = new Dialog<>();
+        dialog.setTitle("Başarılı");
+        dialog.setHeaderText("Trigger ve History tablosu başarıyla oluşturuldu!");
+        
+        // İçerik
+        VBox content = new VBox(15);
+        content.setPadding(new Insets(20));
+        content.setAlignment(Pos.CENTER);
+        
+        // Bilgi metni
+        Label infoLabel = new Label(
+            "Tablo: " + tableName + "\n" +
+            "Trigger: " + triggerName + "\n" +
+            "History Tablosu: " + hisTableName + "\n" +
+            "Sequence: " + seqName
+        );
+        infoLabel.setStyle("-fx-font-size: 12px;");
+        
+        // Buton başlığı
+        Label downloadLabel = new Label("DDL Dosyalarını İndir:");
+        downloadLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
+        
+        // Butonlar için grid
+        GridPane buttonGrid = new GridPane();
+        buttonGrid.setHgap(10);
+        buttonGrid.setVgap(10);
+        buttonGrid.setAlignment(Pos.CENTER);
+        
+        // 1. Ana Tablo DDL butonu
+        Button tableButton = new Button("📋 Ana Tablo DDL");
+        tableButton.setPrefWidth(150);
+        tableButton.setPrefHeight(35);
+        tableButton.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        tableButton.setOnAction(e -> {
+            String ddl = generateMainTableDdl(schema, tableName, columns);
+            saveToFile(tableName + "_TABLE.ddl", ddl, "Ana Tablo DDL");
+        });
+        
+        // 2. HIS Tablosu DDL butonu
+        Button hisButton = new Button("📜 HIS Tablosu DDL");
+        hisButton.setPrefWidth(150);
+        hisButton.setPrefHeight(35);
+        hisButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        hisButton.setOnAction(e -> {
+            String ddl = generateHisTableDdl(schema, tableName, columns);
+            saveToFile(hisTableName + ".ddl", ddl, "History Tablosu DDL");
+        });
+        
+        // 3. Trigger DDL butonu
+        Button triggerButton = new Button("⚡ Trigger DDL");
+        triggerButton.setPrefWidth(150);
+        triggerButton.setPrefHeight(35);
+        triggerButton.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        triggerButton.setOnAction(e -> {
+            String ddl = generateTriggerSql(schema, tableName, triggerName, columns);
+            saveToFile(triggerName + ".trg", ddl, "Trigger DDL");
+        });
+        
+        // 4. Sequence DDL butonu
+        Button seqButton = new Button("🔢 Sequence DDL");
+        seqButton.setPrefWidth(150);
+        seqButton.setPrefHeight(35);
+        seqButton.setStyle("-fx-background-color: #9C27B0; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
+        seqButton.setOnAction(e -> {
+            String ddl = generateSequenceDdl(schema, tableName);
+            saveToFile(seqName + ".ddl", ddl, "Sequence DDL");
+        });
+        
+        // Hover efektleri
+        addHoverEffect(tableButton, "#1976D2", "#2196F3");
+        addHoverEffect(hisButton, "#388E3C", "#4CAF50");
+        addHoverEffect(triggerButton, "#F57C00", "#FF9800");
+        addHoverEffect(seqButton, "#7B1FA2", "#9C27B0");
+        
+        // Butonları grid'e ekle (2x2)
+        buttonGrid.add(tableButton, 0, 0);
+        buttonGrid.add(hisButton, 1, 0);
+        buttonGrid.add(triggerButton, 0, 1);
+        buttonGrid.add(seqButton, 1, 1);
+        
+        content.getChildren().addAll(infoLabel, new Separator(), downloadLabel, buttonGrid);
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
+        dialog.getDialogPane().setPrefWidth(400);
+        
+        dialog.showAndWait();
+    }
+    
+    /**
+     * Buton hover efekti ekler
+     */
+    private void addHoverEffect(Button button, String hoverColor, String normalColor) {
+        String baseStyle = "-fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;";
+        button.setOnMouseEntered(e -> button.setStyle("-fx-background-color: " + hoverColor + "; " + baseStyle));
+        button.setOnMouseExited(e -> button.setStyle("-fx-background-color: " + normalColor + "; " + baseStyle));
+    }
+    
+    /**
+     * Ana tablo için DDL oluşturur (CREATE TABLE ... AS SELECT ile)
+     */
+    private String generateMainTableDdl(String schema, String tableName, List<Map<String, Object>> columns) {
+        StringBuilder ddl = new StringBuilder();
+        ddl.append("-- ").append(tableName).append(" Ana Tablo DDL\n");
+        ddl.append("-- Oluşturulma Tarihi: ").append(java.time.LocalDateTime.now()).append("\n\n");
+        
+        ddl.append(String.format("CREATE TABLE %s.%s (\n", schema, tableName));
+        
+        for (int i = 0; i < columns.size(); i++) {
+            Map<String, Object> col = columns.get(i);
+            String colName = col.get("COLUMN_NAME").toString();
+            String dataType = col.get("DATA_TYPE").toString();
+            Object dataLength = col.get("DATA_LENGTH");
+            Object precision = col.get("DATA_PRECISION");
+            Object scale = col.get("DATA_SCALE");
+
+            ddl.append("  ").append(colName).append(" ");
+
+            if (dataType.contains("VARCHAR2") || dataType.contains("CHAR")) {
+                ddl.append(dataType).append("(").append(dataLength).append(")");
+            } else if (dataType.equals("NUMBER") && precision != null) {
+                if (scale != null && ((Number)scale).intValue() > 0) {
+                    ddl.append("NUMBER(").append(precision).append(",").append(scale).append(")");
+                } else {
+                    ddl.append("NUMBER(").append(precision).append(")");
+                }
+            } else {
+                ddl.append(dataType);
+            }
+            
+            if (i < columns.size() - 1) {
+                ddl.append(",");
+            }
+            ddl.append("\n");
+        }
+
+        ddl.append(");\n");
+        return ddl.toString();
+    }
+    
+    /**
+     * DDL içeriğini dosyaya kaydeder (FileChooser ile)
+     */
+    private void saveToFile(String defaultFileName, String content, String description) {
+        FileChooser fileChooser = new FileChooser();
+        fileChooser.setTitle(description + " - Kaydet");
+        fileChooser.setInitialFileName(defaultFileName);
+        
+        // Dosya filtresi
+        FileChooser.ExtensionFilter ddlFilter = new FileChooser.ExtensionFilter("DDL Dosyası (*.ddl)", "*.ddl");
+        FileChooser.ExtensionFilter trgFilter = new FileChooser.ExtensionFilter("Trigger Dosyası (*.trg)", "*.trg");
+        FileChooser.ExtensionFilter allFilter = new FileChooser.ExtensionFilter("Tüm Dosyalar (*.*)", "*.*");
+        
+        if (defaultFileName.endsWith(".trg")) {
+            fileChooser.getExtensionFilters().addAll(trgFilter, ddlFilter, allFilter);
+        } else {
+            fileChooser.getExtensionFilters().addAll(ddlFilter, trgFilter, allFilter);
+        }
+        
+        // Varsayılan dizin (Desktop)
+        File initialDir = new File(System.getProperty("user.home") + "/Desktop");
+        if (initialDir.exists()) {
+            fileChooser.setInitialDirectory(initialDir);
+        }
+        
+        File file = fileChooser.showSaveDialog(primaryStage);
+        
+        if (file != null) {
+            try (FileWriter writer = new FileWriter(file)) {
+                writer.write(content);
+                showAlert(Alert.AlertType.INFORMATION, "Başarılı", 
+                    description + " başarıyla kaydedildi:\n" + file.getAbsolutePath());
+            } catch (IOException e) {
+                showAlert(Alert.AlertType.ERROR, "Hata", 
+                    "Dosya kaydedilemedi:\n" + e.getMessage());
+            }
+        }
+    }
+    
+    /**
+     * DDL oluşturmak için tablo kolonlarını alır (bağlantı dışından)
+     */
+    private List<Map<String, Object>> getTableColumnsForDdl(String schema, String tableName) throws Exception {
+        try (Connection conn = DriverManager.getConnection(
+                DatabaseConfigLoader.getUrl(),
+                DatabaseConfigLoader.getUsername(),
+                DatabaseConfigLoader.getPassword())) {
+            return getTableColumns(conn, schema, tableName);
         }
     }
 
