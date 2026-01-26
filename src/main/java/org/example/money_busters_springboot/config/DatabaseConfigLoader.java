@@ -31,7 +31,10 @@ public class DatabaseConfigLoader {
             Map<String, Object> config = yaml.load(inputStream);
             
             @SuppressWarnings("unchecked")
-            Map<String, Object> datasource = (Map<String, Object>) config.get("datasource");
+            Map<String, Object> spring = (Map<String, Object>) config.get("spring");
+            
+            @SuppressWarnings("unchecked")
+            Map<String, Object> datasource = (Map<String, Object>) spring.get("datasource");
             
             url = (String) datasource.get("url");
             username = (String) datasource.get("username");
