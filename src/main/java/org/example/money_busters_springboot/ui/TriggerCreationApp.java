@@ -224,74 +224,63 @@ public class TriggerCreationApp extends Application {
     private void handleCreateTrigger() {
         String selectedTable = tableComboBox.getValue();
         String schema = schemaComboBox.getValue();
-        
-        if (schema == null || schema.isEmpty()) {
-            showAlert(Alert.AlertType.WARNING, "Uyarı", "Lütfen bir şema seçiniz.");
+
+        if (schema == null || selectedTable == null) {
+            showAlert(Alert.AlertType.WARNING, "Uyarı", "Lütfen şema ve tablo seçiniz.");
             return;
         }
-        
-        if (selectedTable == null || selectedTable.isEmpty()) {
-            showAlert(Alert.AlertType.WARNING, "Uyarı", "Lütfen bir tablo seçiniz.");
-            return;
-        }
-        
-        // Otomatik isimler
+
         String triggerName = "TRG_" + selectedTable.toUpperCase();
         String hisTableName = selectedTable.toUpperCase() + "_HIS";
         String seqName = "SEQ_" + hisTableName;
-        
+
         try {
-            // Önce kolonları al (DDL oluşturmak için lazım olacak)
-            List<Map<String, Object>> columns = getTableColumnsForDdl(schema, selectedTable);
-            
-            if (dbRadioButton.isSelected()) {
-                // Database'e kaydet modu
-                // Önce HIS tablosu var mı kontrol et
-                if (checkIfHistoryTableExists(schema, hisTableName)) {
-                    // Uyarı göster
-                    Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
-                    confirmAlert.setTitle("Uyarı");
-                    confirmAlert.setHeaderText("Bu trigger daha önce oluşturulmuş!");
-                    confirmAlert.setContentText(
-                        "'" + hisTableName + "' tablosu zaten mevcut.\n\n" +
-                        "Mevcut HIS tablosuna dokunulmayacak, veriler korunacak.\n" +
-                        "Sadece trigger yeniden oluşturulacak.\n\n" +
-                        "Devam etmek istiyor musunuz?"
-                    );
-                    
-                    ButtonType yesButton = new ButtonType("Evet, Devam Et");
-                    ButtonType noButton = new ButtonType("İptal", ButtonBar.ButtonData.CANCEL_CLOSE);
-                    confirmAlert.getButtonTypes().setAll(yesButton, noButton);
-                    
-                    confirmAlert.showAndWait().ifPresent(response -> {
-                        if (response == yesButton) {
-                            try {
-                                // Sadece trigger'ı yeniden oluştur (HIS tablosuna dokunma)
-                                recreateTriggerOnly(schema, selectedTable, triggerName, columns);
-                                showSuccessDialogWithDownloadButtons(schema, selectedTable, triggerName, hisTableName, seqName, columns);
-                            } catch (Exception ex) {
-                                ex.printStackTrace();
-                                showAlert(Alert.AlertType.ERROR, "Hata", "Trigger oluşturulurken hata: " + ex.getMessage());
-                            }
-                        }
-                    });
+            // 1. ADIM: VARLIK KONTROLÜ (Hem DB hem Script modu için çalışsın diye en başa aldık)
+            // Not: checkHistoryTableExists metodu zaten sende var, onu kullanıyoruz.
+            boolean exists = checkIfHistoryTableExists(schema, hisTableName);
+
+            if (exists) {
+                Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+                confirmAlert.setTitle("Mevcut Kayıt Uyarısı");
+                confirmAlert.setHeaderText("Bu tablo için işlemler daha önce yapılmış!");
+                confirmAlert.setContentText(
+                        "'" + hisTableName + "' tablosu veritabanında zaten mevcut.\n\n" +
+                                "• Database Modu: Mevcut veriler korunacak, yapı güncellenecek.\n" +
+                                "• Script Modu: Rollback scriptleri 'Eskiye Dönüş' için hazırlanacak.\n\n" +
+                                "Devam etmek istiyor musunuz?"
+                );
+
+                ButtonType yesButton = new ButtonType("Evet, Devam Et");
+                ButtonType noButton = new ButtonType("İptal", ButtonBar.ButtonData.CANCEL_CLOSE);
+                confirmAlert.getButtonTypes().setAll(yesButton, noButton);
+
+                // Eğer kullanıcı "İptal" derse işlem burada biter
+                java.util.Optional<ButtonType> result = confirmAlert.showAndWait();
+                if (result.isEmpty() || result.get() != yesButton) {
                     return;
                 }
-                
-                // HIS tablosu yoksa normal akış
-                createTriggerWithHistoryTable(schema, selectedTable, triggerName);
-                showSuccessDialogWithDownloadButtons(schema, selectedTable, triggerName, hisTableName, seqName, columns);
-                loadTables(schema);
-                
-            } else {
-                // Sadece script modu - Database'e hiç dokunma
-                showSuccessDialogWithDownloadButtons(schema, selectedTable, triggerName, hisTableName, seqName, columns);
             }
-            
+
+            // 2. ADIM: KOLONLARI AL VE İŞLEMİ YAP
+            List<Map<String, Object>> columns = getTableColumnsForDdl(schema, selectedTable);
+
+            if (dbRadioButton.isSelected()) {
+                // Database işlemleri...
+                if (exists) {
+                    recreateTriggerOnly(schema, selectedTable, triggerName, columns); // Sadece trigger yenile
+                } else {
+                    createTriggerWithHistoryTable(schema, selectedTable, triggerName); // Sıfırdan kur
+                }
+                loadTables(schema);
+            }
+
+            // 3. ADIM: BAŞARI EKRANI VE BUTONLAR
+            // Burayı güncelledik: Rollback butonları için exist bilgisini de gönderiyoruz
+            showSuccessDialogWithDownloadButtons(schema, selectedTable, triggerName, hisTableName, seqName, columns, exists);
+
         } catch (Exception ex) {
             ex.printStackTrace();
-            showAlert(Alert.AlertType.ERROR, "Hata", 
-                "İşlem sırasında hata oluştu:\n" + ex.getMessage());
+            showAlert(Alert.AlertType.ERROR, "Hata", "İşlem hatası: " + ex.getMessage());
         }
     }
     
@@ -433,103 +422,103 @@ public class TriggerCreationApp extends Application {
     /**
      * 4 butonlu başarı dialogunu gösterir - DDL dosyalarını indirmek için
      */
-    private void showSuccessDialogWithDownloadButtons(String schema, String tableName, String triggerName, 
-                                                       String hisTableName, String seqName, 
-                                                       List<Map<String, Object>> columns) {
-        // Özel dialog oluştur
+// Metod imzasını değiştirdik: 'boolean exists' parametresini ekledik
+    private void showSuccessDialogWithDownloadButtons(String schema, String tableName, String triggerName,
+                                                      String hisTableName, String seqName,
+                                                      List<Map<String, Object>> columns, boolean exists) {
         Dialog<Void> dialog = new Dialog<>();
-        dialog.setTitle("Başarılı");
-        
-        // Header'ı moda göre ayarla
-        if (scriptOnlyRadioButton.isSelected()) {
-            dialog.setHeaderText("Script'ler başarıyla oluşturuldu!");
-        } else {
-            dialog.setHeaderText("Trigger ve History tablosu başarıyla oluşturuldu!");
-        }
-        
-        // İçerik
+        dialog.setTitle("İşlem Başarılı");
+        dialog.setHeaderText("İşlemler Tamamlandı");
+
         VBox content = new VBox(15);
         content.setPadding(new Insets(20));
         content.setAlignment(Pos.CENTER);
-        
-        // Bilgi metni
-        Label infoLabel = new Label(
-            "Tablo: " + tableName + "\n" +
-            "Trigger: " + triggerName + "\n" +
-            "History Tablosu: " + hisTableName + "\n" +
-            "Sequence: " + seqName
-        );
-        infoLabel.setStyle("-fx-font-size: 12px;");
-        
-        // Buton başlığı
-        Label downloadLabel = new Label("DDL Dosyalarını İndir:");
-        downloadLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 13px;");
-        
-        // Butonlar için grid
-        GridPane buttonGrid = new GridPane();
-        buttonGrid.setHgap(10);
-        buttonGrid.setVgap(10);
-        buttonGrid.setAlignment(Pos.CENTER);
-        
-        // 1. Ana Tablo DDL butonu
-        Button tableButton = new Button("📋 Ana Tablo DDL");
-        tableButton.setPrefWidth(150);
-        tableButton.setPrefHeight(35);
-        tableButton.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
-        tableButton.setOnAction(e -> {
+
+        // Bilgi
+        Label infoLabel = new Label("Tablo: " + tableName + "\nDurum: " + (exists ? "Güncelleme Yapıldı" : "Sıfırdan Oluşturuldu"));
+
+        // --- YEŞİL/MAVİ BUTONLAR (OLUŞTURMA) ---
+        Label createLabel = new Label("Oluşturma Scriptleri:");
+        createLabel.setStyle("-fx-font-weight: bold;");
+
+        GridPane createGrid = new GridPane(); createGrid.setHgap(10); createGrid.setVgap(10);
+        // Ana DDL
+        Button btnMain = new Button("📋 Ana Tablo"); btnMain.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
+        btnMain.setOnAction(e -> {
             String ddl = generateMainTableDdl(schema, tableName, columns);
-            saveToFile(tableName + "_TABLE.ddl", ddl, "Ana Tablo DDL");
+            saveToFile(tableName + ".ddl", ddl, "Ana Tablo");
         });
-        
-        // 2. HIS Tablosu DDL butonu
-        Button hisButton = new Button("📜 HIS Tablosu DDL");
-        hisButton.setPrefWidth(150);
-        hisButton.setPrefHeight(35);
-        hisButton.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
-        hisButton.setOnAction(e -> {
+
+        // HIS DDL
+        Button btnHis = new Button("📜 HIS Tablosu"); btnHis.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
+        btnHis.setOnAction(e -> {
             String ddl = generateHisTableDdl(schema, tableName, columns);
-            saveToFile(hisTableName + ".ddl", ddl, "History Tablosu DDL");
+            saveToFile(hisTableName + ".ddl", ddl, "History Tablosu");
         });
-        
-        // 3. Trigger DDL butonu
-        Button triggerButton = new Button("⚡ Trigger DDL");
-        triggerButton.setPrefWidth(150);
-        triggerButton.setPrefHeight(35);
-        triggerButton.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
-        triggerButton.setOnAction(e -> {
+
+        // Trigger DDL
+        Button btnTrg = new Button("⚡ Trigger"); btnTrg.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white;");
+        btnTrg.setOnAction(e -> {
             String ddl = generateTriggerSql(schema, tableName, triggerName, columns);
-            saveToFile(triggerName + ".trg", ddl, "Trigger DDL");
+            saveToFile(triggerName + ".trg", ddl, "Trigger");
         });
-        
-        // 4. Sequence DDL butonu
-        Button seqButton = new Button("🔢 Sequence DDL");
-        seqButton.setPrefWidth(150);
-        seqButton.setPrefHeight(35);
-        seqButton.setStyle("-fx-background-color: #9C27B0; -fx-text-fill: white; -fx-font-weight: bold; -fx-cursor: hand;");
-        seqButton.setOnAction(e -> {
+
+        // Sequence DDL
+        Button btnSeq = new Button("🔢 Sequence"); btnSeq.setStyle("-fx-background-color: #9C27B0; -fx-text-fill: white;");
+        btnSeq.setOnAction(e -> {
             String ddl = generateSequenceDdl(schema, tableName);
-            saveToFile(seqName + ".ddl", ddl, "Sequence DDL");
+            saveToFile(seqName + ".ddl", ddl, "Sequence");
         });
-        
-        // Hover efektleri
-        addHoverEffect(tableButton, "#1976D2", "#2196F3");
-        addHoverEffect(hisButton, "#388E3C", "#4CAF50");
-        addHoverEffect(triggerButton, "#F57C00", "#FF9800");
-        addHoverEffect(seqButton, "#7B1FA2", "#9C27B0");
-        
-        // Butonları grid'e ekle (2x2)
-        buttonGrid.add(tableButton, 0, 0);
-        buttonGrid.add(hisButton, 1, 0);
-        buttonGrid.add(triggerButton, 0, 1);
-        buttonGrid.add(seqButton, 1, 1);
-        
-        content.getChildren().addAll(infoLabel, new Separator(), downloadLabel, buttonGrid);
-        
+
+        createGrid.add(btnMain, 0, 0); createGrid.add(btnHis, 1, 0);
+        createGrid.add(btnTrg, 0, 1); createGrid.add(btnSeq, 1, 1);
+
+        // --- KIRMIZI BUTONLAR (ROLLBACK) ---
+        // İşte burası senin istediğin yeni kısım:
+        Label rbLabel = new Label("Geri Alma (Rollback) Scriptleri:");
+        rbLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #D32F2F;");
+
+        GridPane rbGrid = new GridPane(); rbGrid.setHgap(10); rbGrid.setVgap(10);
+
+        // RB Trigger
+        Button rbTrg = new Button("🔄 TRG Geri Al"); rbTrg.setStyle("-fx-background-color: #D32F2F; -fx-text-fill: white;");
+        rbTrg.setOnAction(e -> {
+            // Basit Drop veya Eskiye Dönüş (Manuel string şimdilik)
+            String ddl = "DROP TRIGGER " + schema + "." + triggerName + ";";
+            saveToFile(triggerName + "_RB.ddl", ddl, "Trigger Rollback");
+        });
+
+        // RB HIS
+        Button rbHis = new Button("🔄 HIS Geri Al"); rbHis.setStyle("-fx-background-color: #D32F2F; -fx-text-fill: white;");
+        rbHis.setOnAction(e -> {
+            String ddl = "DROP TABLE " + schema + "." + hisTableName + ";";
+            saveToFile(hisTableName + "_RB.ddl", ddl, "HIS Table Rollback");
+        });
+
+        // RB Seq
+        Button rbSeq = new Button("🔄 SEQ Geri Al"); rbSeq.setStyle("-fx-background-color: #D32F2F; -fx-text-fill: white;");
+        rbSeq.setOnAction(e -> {
+            String ddl = "DROP SEQUENCE " + schema + "." + seqName + ";";
+            saveToFile(seqName + "_RB.ddl", ddl, "Sequence Rollback");
+        });
+
+        // RB Main
+        Button rbMain = new Button("🔄 MAIN Geri Al"); rbMain.setStyle("-fx-background-color: #D32F2F; -fx-text-fill: white;");
+        rbMain.setOnAction(e -> {
+            String ddl = "DROP TABLE " + schema + "." + tableName + ";";
+            saveToFile(tableName + "_MAIN_RB.ddl", ddl, "Main Table Rollback");
+        });
+
+        rbGrid.add(rbTrg, 0, 0); rbGrid.add(rbHis, 1, 0);
+        rbGrid.add(rbSeq, 0, 1); rbGrid.add(rbMain, 1, 1);
+
+        content.getChildren().addAll(infoLabel, new Separator(), createLabel, createGrid, new Separator(), rbLabel, rbGrid);
+
         dialog.getDialogPane().setContent(content);
         dialog.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
-        dialog.getDialogPane().setPrefWidth(400);
-        
         dialog.showAndWait();
+
+
     }
     
     /**
