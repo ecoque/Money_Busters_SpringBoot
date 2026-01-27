@@ -7,6 +7,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
+import javafx.scene.image.Image;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -49,6 +50,9 @@ public class TriggerCreationApp extends Application {
     public void start(Stage primaryStage) {
         this.primaryStage = primaryStage;
         primaryStage.setTitle("Trigger Oluşturma");
+        
+        // Pencere ikonu ekle
+        setStageIcon(primaryStage);
 
         // Ana layout
         VBox mainLayout = new VBox(15);
@@ -250,6 +254,7 @@ public class TriggerCreationApp extends Application {
                 if (checkIfHistoryTableExists(schema, hisTableName)) {
                     // Uyarı göster
                     Alert confirmAlert = new Alert(Alert.AlertType.CONFIRMATION);
+                    setAlertIcon(confirmAlert);
                     confirmAlert.setTitle("Uyarı");
                     confirmAlert.setHeaderText("Bu trigger daha önce oluşturulmuş!");
                     confirmAlert.setContentText(
@@ -438,6 +443,7 @@ public class TriggerCreationApp extends Application {
                                                        List<Map<String, Object>> columns) {
         // Özel dialog oluştur
         Dialog<Void> dialog = new Dialog<>();
+        setDialogIcon(dialog);
         dialog.setTitle("Başarılı");
         
         // Header'ı moda göre ayarla
@@ -639,6 +645,7 @@ public class TriggerCreationApp extends Application {
      */
     private void showAlert(Alert.AlertType type, String title, String message) {
         Alert alert = new Alert(type);
+        setAlertIcon(alert);
         alert.setTitle(title);
         alert.setHeaderText(null);
         alert.setContentText(message);
@@ -865,5 +872,45 @@ public class TriggerCreationApp extends Application {
      */
     public static void main(String[] args) {
         launch(args);
+    }
+    
+    /**
+     * Stage (pencere) için ikon ayarlar
+     */
+    private void setStageIcon(Stage stage) {
+        try {
+            // İkon dosyasını yükle (resources/icons/trigger_icon.png)
+            Image icon = new Image(getClass().getResourceAsStream("/icons/trigger_icon.png"));
+            stage.getIcons().add(icon);
+        } catch (Exception e) {
+            // İkon bulunamazsa devam et (hata verme)
+            System.out.println("Ikon dosyası bulunamadı: /icons/trigger_icon.png");
+        }
+    }
+    
+    /**
+     * Alert dialog için ikon ayarlar
+     */
+    private void setAlertIcon(Alert alert) {
+        try {
+            Stage alertStage = (Stage) alert.getDialogPane().getScene().getWindow();
+            Image icon = new Image(getClass().getResourceAsStream("/icons/trigger_icon.png"));
+            alertStage.getIcons().add(icon);
+        } catch (Exception e) {
+            System.out.println("Alert ikonu ayarlanamadı");
+        }
+    }
+    
+    /**
+     * Dialog için ikon ayarlar
+     */
+    private void setDialogIcon(Dialog<?> dialog) {
+        try {
+            Stage dialogStage = (Stage) dialog.getDialogPane().getScene().getWindow();
+            Image icon = new Image(getClass().getResourceAsStream("/icons/trigger_icon.png"));
+            dialogStage.getIcons().add(icon);
+        } catch (Exception e) {
+            System.out.println("Dialog ikonu ayarlanamadı");
+        }
     }
 }
