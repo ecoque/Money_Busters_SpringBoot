@@ -126,7 +126,7 @@ public class TriggerCreationApp extends Application {
         g.add(makeBtn("🔢 Sequence DDL", "#9C27B0", e -> save("SEQ_" + t + ".ddl", s.get("seq"))), 1, 1);
         g.add(makeBtn("🔄 Rollback (RB.ddl)", "#F44336", e -> save(t + "_RB.ddl", s.get("rollback"))), 0, 2, 2, 1);
 
-        v.getChildren().addAll(new Separator(), new Label("DDL Dosyalarını İndir:"), g);
+        v.getChildren().addAll(new Separator(), new Label("DDL Dosyalarını Indir:"), g);
         d.getDialogPane().setContent(v);
         d.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
         d.showAndWait();
