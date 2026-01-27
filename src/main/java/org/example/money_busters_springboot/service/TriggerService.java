@@ -17,31 +17,25 @@ public class TriggerService {
         this.generator = generator;
     }
 
-    // Controller'ın aradığı tüm metodlar burada:
+    // Controller'ın beklediği tüm metodlar:
     public List<TriggerMetadata> getAllTriggers() { return repository.findAllTriggers(); }
-    public List<TriggerMetadata> getTriggersByTable(String table) { return repository.findTriggersByTableName(table); }
-    public TriggerMetadata getTriggerByName(String name) { return repository.findTriggerByName(name); }
-    public void enableTrigger(String name) { repository.setTriggerStatus(name, true); }
-    public void disableTrigger(String name) { repository.setTriggerStatus(name, false); }
+    public List<TriggerMetadata> getTriggersByTable(String t) { return repository.findTriggersByTableName(t); }
+    public TriggerMetadata getTriggerByName(String n) { return repository.findTriggerByName(n); }
+    public void enableTrigger(String n) { repository.setTriggerStatus(n, true); }
+    public void disableTrigger(String n) { repository.setTriggerStatus(n, false); }
 
-    public void createInsertTrigger(String schema, String tableName) {
-        repository.execute(generator.generateFullTriggerSql(schema, tableName));
-    }
+    public void createInsertTrigger(String s, String t) { repository.execute(generator.generateFullTriggerSql(s, t)); }
+    public Map<String, String> generateAllScripts(String t) { return processTriggerRequest("UPT", t, false); }
 
-    public Map<String, String> generateAllScripts(String tableName) {
-        return processTriggerRequest("UPT", tableName, false);
-    }
-
-    // UI'daki RadioButton seçimine göre iş yapan ana metod
+    // DATABASE'E KAYDETME MANTIĞI (Hata almayan hali)
     public Map<String, String> processTriggerRequest(String schema, String table, boolean saveToDb) {
         Map<String, String> scripts = new HashMap<>();
-        scripts.put("main", generator.generateMainTableDdl(schema, table));
         scripts.put("his", generator.generateHisTableDdl(schema, table));
-        scripts.put("trigger", generator.generateFullTriggerSql(schema, table));
         scripts.put("seq", generator.generateSequenceDdl(schema, table));
-        scripts.put("rollback", generator.generateRollbackDdl(schema, table));
+        scripts.put("trigger", generator.generateFullTriggerSql(schema, table));
 
         if (saveToDb) {
+            // Komutları ayrı ayrı çalıştırıyoruz (JDBC kuralı)
             if (!repository.tableExists(schema, table + "_HIS")) {
                 repository.execute(scripts.get("his"));
                 repository.execute(scripts.get("seq"));
