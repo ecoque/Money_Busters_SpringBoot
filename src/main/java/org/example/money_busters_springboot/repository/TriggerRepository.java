@@ -119,4 +119,51 @@ public class TriggerRepository {
         """;
         return jdbcTemplate.queryForList(sql, schemaName.toUpperCase(), tableName.toUpperCase());
     }
+
+    // --- BURADAN AŞAĞISINI EKLE ---
+
+    // 1. Temiz Şema Listesi (Sistem dosyalarını görmez)
+    public List<String> findAllSchemasFiltered() {
+        String sql = "SELECT DISTINCT owner FROM all_tables WHERE owner NOT IN ('SYS', 'SYSTEM', 'DBSNMP', 'OUTLN', 'XDB', 'WMSYS', 'APEX_040000', 'MDSYS', 'CTXSYS', 'ORDSYS') ORDER BY owner";
+        return jdbcTemplate.queryForList(sql, String.class);
+    }
+
+    // 2. Sadece Ana Tabloları Getir (_HIS olmayanlar)
+    public List<String> findTablesWithoutHis(String schema) {
+        String sql = "SELECT table_name FROM all_tables WHERE owner = ? AND table_name NOT LIKE '%_HIS' ORDER BY table_name";
+        return jdbcTemplate.queryForList(sql, String.class, schema.toUpperCase());
+    }
+
+    // 3. HIS Tablosu Var mı Kontrolü
+    public boolean historyTableExists(String schema, String tableName) {
+        String sql = "SELECT count(*) FROM all_tables WHERE owner = ? AND table_name = ?";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, schema.toUpperCase(), tableName.toUpperCase());
+        return count != null && count > 0;
+    }
+
+    // 4. Trigger Var mı Kontrolü
+    public boolean triggerExists(String schema, String triggerName) {
+        String sql = "SELECT count(*) FROM all_triggers WHERE owner = ? AND trigger_name = ?";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, schema.toUpperCase(), triggerName.toUpperCase());
+        return count != null && count > 0;
+    }
+
+    // 5. Sequence Var mı Kontrolü
+    public boolean sequenceExists(String schema, String seqName) {
+        String sql = "SELECT count(*) FROM all_sequences WHERE sequence_owner = ? AND sequence_name = ?";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, schema.toUpperCase(), seqName.toUpperCase());
+        return count != null && count > 0;
+    }
+
+    // 6. Eski Trigger Kodunu Çekme (Rollback İçin Restore Özelliği)
+    public String getTriggerDDL(String schema, String triggerName) {
+        try {
+            String sql = "SELECT DBMS_METADATA.GET_DDL('TRIGGER', ?, ?) FROM DUAL";
+            return jdbcTemplate.queryForObject(sql, String.class, triggerName.toUpperCase(), schema.toUpperCase());
+        } catch (Exception e) {
+            // Hata olursa konsola yazsın, biz de görelim
+            System.err.println("Eski Trigger DDL okunamadı: " + triggerName + " -> " + e.getMessage());
+            return null;
+        }
+    }
 }

@@ -16,122 +16,92 @@ public class TriggerGeneratorService {
         this.triggerRepository = triggerRepository;
     }
 
-    /**
-     * INSERT, UPDATE ve DELETE işlemlerini tek bir trigger içinde yöneten SQL üretir.
-     */
-    // TriggerGeneratorService.java içindeki ilgili metodu bununla değiştirin
+    // --- EKSİK OLAN METODLAR EKLENDİ ---
 
-    public String generateFullTriggerSql(String schema, String tableName) {
-        String triggerName = "TRG_" + tableName.toUpperCase();
-        String hisTable = tableName.toUpperCase() + "_HIS";
-        String sequenceName = "SEQ_" + tableName.toUpperCase() + "_HIS";
-
+    // 1. Ana Tablo DDL (Controller bunu arıyordu)
+    public String generateMainTableDdl(String schema, String tableName) {
         List<Map<String, Object>> columns = triggerRepository.getTableColumns(schema, tableName);
-        List<String> colNames = columns.stream()
-                .map(c -> c.get("COLUMN_NAME").toString())
-                .collect(Collectors.toList());
-
-        String colList = String.join(", ", colNames);
-
-        // Değer listelerini oluşturma
-        String oldValues = colNames.stream().map(c -> ":OLD." + c).collect(Collectors.joining(", "));
-        String newValues = colNames.stream().map(c -> ":NEW." + c).collect(Collectors.joining(", "));
-
-        return String.format("""
-    CREATE OR REPLACE TRIGGER %s.%s
-    AFTER INSERT OR UPDATE OR DELETE ON %s.%s
-    FOR EACH ROW
-    DECLARE
-        v_op_type CHAR(1);
-    BEGIN
-        IF INSERTING THEN 
-            v_op_type := 'I';
-            INSERT INTO %s.%s (HIS_X, OP_TYPE, DML_USER, DML_DATE, %s)
-            VALUES (%s.%s.NEXTVAL, v_op_type, SYS_CONTEXT('USERENV','SESSION_USER'), SYSDATE, %s);
-            
-        ELSIF UPDATING THEN 
-            v_op_type := 'U';
-            INSERT INTO %s.%s (HIS_X, OP_TYPE, DML_USER, DML_DATE, %s)
-            VALUES (%s.%s.NEXTVAL, v_op_type, SYS_CONTEXT('USERENV','SESSION_USER'), SYSDATE, %s);
-            
-        ELSIF DELETING THEN 
-            v_op_type := 'D';
-            INSERT INTO %s.%s (HIS_X, OP_TYPE, DML_USER, DML_DATE, %s)
-            VALUES (%s.%s.NEXTVAL, v_op_type, SYS_CONTEXT('USERENV','SESSION_USER'), SYSDATE, %s);
-        END IF;
-    END;
-    """,
-                schema, triggerName, schema, tableName,
-                schema, hisTable, colList, schema, sequenceName, newValues, // Insert durumu
-                schema, hisTable, colList, schema, sequenceName, newValues, // Update durumu
-                schema, hisTable, colList, schema, sequenceName, oldValues  // Delete durumu
-        );
+        StringBuilder ddl = new StringBuilder(String.format("CREATE TABLE %s.%s (\n", schema, tableName));
+        for (int i = 0; i < columns.size(); i++) {
+            Map<String, Object> col = columns.get(i);
+            ddl.append("  ").append(col.get("COLUMN_NAME")).append(" ").append(col.get("DATA_TYPE"));
+            if (col.get("DATA_TYPE").toString().contains("CHAR")) ddl.append("(").append(col.get("DATA_LENGTH")).append(")");
+            if (i < columns.size() - 1) ddl.append(",");
+            ddl.append("\n");
+        }
+        return ddl.append(");").toString();
     }
 
-    /**
-     * History tablosunu (HIS) ve Sequence'i oluşturan DDL scriptini üretir.
-     * VARCHAR2 uzunluklarını ve NUMBER hassasiyetlerini otomatik ekler.
-     */
+    // 2. Sequence DDL (Controller bunu arıyordu)
+    public String generateSequenceDdl(String schema, String tableName) {
+        return String.format("CREATE SEQUENCE %s.SEQ_%s_HIS START WITH 1 INCREMENT BY 1", schema, tableName.toUpperCase());
+    }
+
+    // --- MEVCUT METODLAR ---
+
+    public String generateAlterTableAddColumnSql(String schema, String tableName, Map<String, Object> col) {
+        String colName = col.get("COLUMN_NAME").toString();
+        String dataType = col.get("DATA_TYPE").toString();
+        Object dataLen = col.get("DATA_LENGTH");
+        StringBuilder sql = new StringBuilder(String.format("ALTER TABLE %s.%s ADD %s ", schema, tableName, colName));
+        if (dataType.contains("CHAR")) sql.append(dataType).append("(").append(dataLen).append(")");
+        else sql.append(dataType);
+        return sql.toString();
+    }
+
+    public String generateAlterTableDropColumnSql(String schema, String tableName, List<String> columnsToDrop) {
+        if (columnsToDrop == null || columnsToDrop.isEmpty()) return "";
+        StringBuilder sql = new StringBuilder(String.format("ALTER TABLE %s.%s DROP (", schema, tableName));
+        for (int i = 0; i < columnsToDrop.size(); i++) {
+            sql.append(columnsToDrop.get(i));
+            if (i < columnsToDrop.size() - 1) sql.append(", ");
+        }
+        return sql.append(")").toString();
+    }
+
+    public String rbTrigger(String s, String t) { return "DROP TRIGGER " + s + ".TRG_" + t.toUpperCase(); }
+    public String rbHisTable(String s, String t) { return "DROP TABLE " + s + "." + t.toUpperCase() + "_HIS"; }
+    public String rbSequence(String s, String t) { return "DROP SEQUENCE " + s + ".SEQ_" + t.toUpperCase() + "_HIS"; }
+    public String rbMainTable(String s, String t) { return "DROP TABLE " + s + "." + t.toUpperCase(); }
+
     public String generateHisTableDdl(String schema, String tableName) {
-        String hisTable = tableName.toUpperCase() + "_HIS";
-        String seqName = "SEQ_" + hisTable;
         List<Map<String, Object>> columns = triggerRepository.getTableColumns(schema, tableName);
-
-        StringBuilder ddl = new StringBuilder();
-        ddl.append(String.format("CREATE TABLE %s.%s (\n", schema, hisTable));
-        ddl.append("  HIS_X NUMBER PRIMARY KEY,\n");
-        ddl.append("  OP_TYPE CHAR(1),\n");
-        ddl.append("  DML_USER VARCHAR2(100),\n");
-        ddl.append("  DML_DATE DATE,\n");
-
+        StringBuilder ddl = new StringBuilder(String.format("CREATE TABLE %s.%s_HIS (\n  HIS_X NUMBER PRIMARY KEY, OP_TYPE CHAR(1), DML_USER VARCHAR2(100), DML_DATE DATE,\n", schema, tableName));
         for (Map<String, Object> col : columns) {
-            String colName = col.get("COLUMN_NAME").toString();
-            String dataType = col.get("DATA_TYPE").toString();
-            Object dataLength = col.get("DATA_LENGTH");
-            Object precision = col.get("DATA_PRECISION");
-            Object scale = col.get("DATA_SCALE");
-
-            ddl.append("  ").append(colName).append(" ");
-
-            // Oracle'ın VARCHAR2/CHAR için parantez içinde uzunluk isteme kuralı
-            if (dataType.contains("VARCHAR2") || dataType.contains("CHAR")) {
-                ddl.append(dataType).append("(").append(dataLength).append(")");
-            }
-            // NUMBER tipi için hassasiyet (precision/scale) varsa ekle
-            else if (dataType.equals("NUMBER") && precision != null) {
-                if (scale != null) {
-                    ddl.append("NUMBER(").append(precision).append(",").append(scale).append(")");
-                } else {
-                    ddl.append("NUMBER(").append(precision).append(")");
-                }
-            }
-            // DATE, TIMESTAMP veya direkt NUMBER
-            else {
-                ddl.append(dataType);
-            }
+            ddl.append("  ").append(col.get("COLUMN_NAME")).append(" ").append(col.get("DATA_TYPE"));
+            if (col.get("DATA_TYPE").toString().contains("CHAR")) ddl.append("(").append(col.get("DATA_LENGTH")).append(")");
             ddl.append(",\n");
         }
-
-        ddl.setLength(ddl.length() - 2); // Son virgülü ve alt satırı kaldır
-        ddl.append("\n);\n\n");
-
-        ddl.append(String.format("CREATE SEQUENCE %s.%s START WITH 1 INCREMENT BY 1;", schema, seqName));
-        return ddl.toString();
+        ddl.setLength(ddl.length() - 2);
+        return ddl.append("\n)").toString();
     }
 
-    /**
-     * Trigger, Tablo ve Sequence'i silmek için Rollback scripti üretir.
-     */
-    public String generateRollbackDdl(String schema, String tableName) {
+    public String generateFullTriggerSql(String schema, String tableName) {
+        List<Map<String, Object>> columns = triggerRepository.getTableColumns(schema, tableName);
+        String colList = columns.stream().map(c -> c.get("COLUMN_NAME").toString()).collect(Collectors.joining(", "));
+        String nV = columns.stream().map(c -> ":NEW." + c.get("COLUMN_NAME")).collect(Collectors.joining(", "));
+        String oV = columns.stream().map(c -> ":OLD." + c.get("COLUMN_NAME")).collect(Collectors.joining(", "));
+        String trgName = "TRG_" + tableName.toUpperCase();
+        String seqName = "SEQ_" + tableName.toUpperCase() + "_HIS";
         String hisTable = tableName.toUpperCase() + "_HIS";
-        String seqName = "SEQ_" + hisTable;
-        String triggerName = "TRG_" + tableName.toUpperCase();
 
-        // Şema bilgisi isteğiniz üzerine "UPT" olarak sabitlenmiştir
         return String.format("""
-        DROP TRIGGER %s.%s;
-        DROP TABLE %s.%s;
-        DROP SEQUENCE %s.%s;
-        """, "UPT", triggerName, "UPT", hisTable, "UPT", seqName);
+            CREATE OR REPLACE TRIGGER %s.%s
+            AFTER INSERT OR UPDATE OR DELETE ON %s.%s
+            FOR EACH ROW
+            DECLARE v_op_type CHAR(1);
+            BEGIN
+                IF INSERTING THEN v_op_type := 'I';
+                    INSERT INTO %s.%s (HIS_X, OP_TYPE, DML_USER, DML_DATE, %s)
+                    VALUES (%s.%s.NEXTVAL, v_op_type, USER, SYSDATE, %s);
+                ELSIF UPDATING THEN v_op_type := 'U';
+                    INSERT INTO %s.%s (HIS_X, OP_TYPE, DML_USER, DML_DATE, %s)
+                    VALUES (%s.%s.NEXTVAL, v_op_type, USER, SYSDATE, %s);
+                ELSIF DELETING THEN v_op_type := 'D';
+                    INSERT INTO %s.%s (HIS_X, OP_TYPE, DML_USER, DML_DATE, %s)
+                    VALUES (%s.%s.NEXTVAL, v_op_type, USER, SYSDATE, %s);
+                END IF;
+            END;""", schema, trgName, schema, tableName, schema, hisTable, colList, schema, seqName, nV,
+                schema, hisTable, colList, schema, seqName, nV, schema, hisTable, colList, schema, seqName, oV);
     }
 }
