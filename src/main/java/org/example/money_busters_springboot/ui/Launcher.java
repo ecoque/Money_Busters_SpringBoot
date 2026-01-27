@@ -5,7 +5,7 @@ import org.example.money_busters_springboot.MoneyBustersSpringBootApplication;
 /**
  * JavaFX Launcher sınıfı
  * Projenin başlangıç noktası.
- * Spring Boot context'ini ve JavaFX'i doğru sırayla başlatır.
+ * Spring Boot context'ini ve JavaFX'i doğru sırayla başlatır
  */
 public class Launcher {
 
