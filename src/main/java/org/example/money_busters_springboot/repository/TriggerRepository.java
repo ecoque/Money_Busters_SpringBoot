@@ -104,9 +104,21 @@ public class TriggerRepository {
     }
 
     // Seçilen şemaya ait tabloları getirir
+    // src/main/java/org/example/money_busters_springboot/repository/TriggerRepository.java
+
     public List<String> findTablesBySchema(String schemaName) {
-        String sql = "SELECT table_name FROM all_tables WHERE owner = ? ORDER BY table_name";
+        // SQL: Sonu _HIS ile bitmeyen tabloları getir
+        String sql = "SELECT table_name FROM all_tables " +
+                "WHERE owner = ? AND table_name NOT LIKE '%_HIS' " +
+                "ORDER BY table_name";
         return jdbcTemplate.queryForList(sql, String.class, schemaName.toUpperCase());
+    }
+
+    // HIS tablosu var mı kontrolü (Service katmanı kullanacak)
+    public boolean tableExists(String schema, String tableName) {
+        String sql = "SELECT count(*) FROM all_tables WHERE owner = ? AND table_name = ?";
+        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, schema.toUpperCase(), tableName.toUpperCase());
+        return count != null && count > 0;
     }
 
     // Tablonun kolon bilgilerini getirir (HIS tablosunu oluşturmak için kritik)

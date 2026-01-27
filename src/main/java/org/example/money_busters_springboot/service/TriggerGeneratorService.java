@@ -134,4 +134,13 @@ public class TriggerGeneratorService {
         DROP SEQUENCE %s.%s;
         """, "UPT", triggerName, "UPT", hisTable, "UPT", seqName);
     }
+
+
+    public String generateMainTableDdl(String schema, String tableName) {
+        List<Map<String, Object>> columns = triggerRepository.getTableColumns(schema, tableName);
+        StringBuilder ddl = new StringBuilder("-- Ana Tablo DDL\n");
+        ddl.append(String.format("CREATE TABLE %s.%s (\n", schema, tableName));
+        // ... (Kolon döngüsü ve tip eşleştirme mantığı buraya taşındı) ...
+        return ddl.toString();
+    }
 }

@@ -77,4 +77,26 @@ public class TriggerService {
 
         return scripts;
     }
+
+    // src/main/java/org/example/money_busters_springboot/service/TriggerService.java
+
+    public Map<String, String> processTriggerRequest(String schema, String table, boolean saveToDb) {
+        Map<String, String> scripts = new HashMap<>();
+
+        // 1. Scriptleri üret
+        scripts.put("main", triggerGeneratorService.generateMainTableDdl(schema, table));
+        scripts.put("his", triggerGeneratorService.generateHisTableDdl(schema, table));
+        scripts.put("trigger", triggerGeneratorService.generateFullTriggerSql(schema, table));
+        scripts.put("rollback", triggerGeneratorService.generateRollbackDdl(schema, table));
+
+        // 2. Eğer "Database'e Kaydet" seçiliyse çalıştır
+        if (saveToDb) {
+            if (!triggerRepository.tableExists(schema, table + "_HIS")) {
+                triggerRepository.execute(scripts.get("his"));
+            }
+            triggerRepository.execute(scripts.get("trigger"));
+        }
+
+        return scripts;
+    }
 }
