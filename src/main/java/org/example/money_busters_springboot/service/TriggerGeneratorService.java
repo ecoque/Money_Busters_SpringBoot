@@ -127,61 +127,11 @@ public class TriggerGeneratorService {
         String seqName = "SEQ_" + hisTable;
         String triggerName = "TRG_" + tableName.toUpperCase();
 
+        // Şema bilgisi isteğiniz üzerine "UPT" olarak sabitlenmiştir
         return String.format("""
         DROP TRIGGER %s.%s;
         DROP TABLE %s.%s;
         DROP SEQUENCE %s.%s;
-        """, schema, triggerName, schema, hisTable, schema, seqName);
-    }
-
-    /**
-     * Sequence DDL oluşturur
-     */
-    public String generateSequenceDdl(String schema, String tableName) {
-        String seqName = "SEQ_" + tableName.toUpperCase() + "_HIS";
-        return String.format("CREATE SEQUENCE %s.%s START WITH 1 INCREMENT BY 1", schema, seqName);
-    }
-
-    /**
-     * Ana tablo için DDL oluşturur (CREATE TABLE)
-     */
-    public String generateMainTableDdl(String schema, String tableName) {
-        List<Map<String, Object>> columns = triggerRepository.getTableColumns(schema, tableName);
-        
-        StringBuilder ddl = new StringBuilder();
-        ddl.append("-- ").append(tableName).append(" Ana Tablo DDL\n");
-        ddl.append("-- Oluşturulma Tarihi: ").append(java.time.LocalDateTime.now()).append("\n\n");
-        ddl.append(String.format("CREATE TABLE %s.%s (\n", schema, tableName));
-        
-        for (int i = 0; i < columns.size(); i++) {
-            Map<String, Object> col = columns.get(i);
-            String colName = col.get("COLUMN_NAME").toString();
-            String dataType = col.get("DATA_TYPE").toString();
-            Object dataLength = col.get("DATA_LENGTH");
-            Object precision = col.get("DATA_PRECISION");
-            Object scale = col.get("DATA_SCALE");
-
-            ddl.append("  ").append(colName).append(" ");
-
-            if (dataType.contains("VARCHAR2") || dataType.contains("CHAR")) {
-                ddl.append(dataType).append("(").append(dataLength).append(")");
-            } else if (dataType.equals("NUMBER") && precision != null) {
-                if (scale != null && ((Number)scale).intValue() > 0) {
-                    ddl.append("NUMBER(").append(precision).append(",").append(scale).append(")");
-                } else {
-                    ddl.append("NUMBER(").append(precision).append(")");
-                }
-            } else {
-                ddl.append(dataType);
-            }
-            
-            if (i < columns.size() - 1) {
-                ddl.append(",");
-            }
-            ddl.append("\n");
-        }
-
-        ddl.append(");\n");
-        return ddl.toString();
+        """, "UPT", triggerName, "UPT", hisTable, "UPT", seqName);
     }
 }

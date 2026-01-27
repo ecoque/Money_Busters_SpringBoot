@@ -34,13 +34,16 @@ public class TriggerRepository {
 
         return jdbcTemplate.query(sql, new TriggerRowMapper());
     }
+    public void execute(String sql) {
+        jdbcTemplate.execute(sql);
+    }
+
 
     // Oracle'daki giriş yapmış kullanıcıya ait tüm tabloları getirir
     public List<String> findAllTables() {
         String sql = "SELECT TABLE_NAME FROM USER_TABLES ORDER BY TABLE_NAME";
         return jdbcTemplate.queryForList(sql, String.class);
     }
-    
     /**
      * Belirli bir tabloya ait trigger'ları listeler
      */
@@ -94,6 +97,17 @@ public class TriggerRepository {
             );
         }
     }
+    // Tüm şemaları getirir
+    public List<String> findAllSchemas() {
+        String sql = "SELECT DISTINCT owner FROM all_tables ORDER BY owner";
+        return jdbcTemplate.queryForList(sql, String.class);
+    }
+
+    // Seçilen şemaya ait tabloları getirir
+    public List<String> findTablesBySchema(String schemaName) {
+        String sql = "SELECT table_name FROM all_tables WHERE owner = ? ORDER BY table_name";
+        return jdbcTemplate.queryForList(sql, String.class, schemaName.toUpperCase());
+    }
 
     // Tablonun kolon bilgilerini getirir (HIS tablosunu oluşturmak için kritik)
     public List<Map<String, Object>> getTableColumns(String schemaName, String tableName) {
@@ -104,51 +118,5 @@ public class TriggerRepository {
         ORDER BY column_id
         """;
         return jdbcTemplate.queryForList(sql, schemaName.toUpperCase(), tableName.toUpperCase());
-    }
-
-    /**
-     * Sistem şemalarını hariç tutarak tüm şemaları getirir (UI için)
-     */
-    public List<String> findAllSchemasFiltered() {
-        String sql = """
-            SELECT DISTINCT OWNER FROM ALL_TABLES 
-            WHERE OWNER NOT IN ('SYS', 'SYSTEM', 'DBSNMP', 'OUTLN', 'APPQOSSYS', 
-            'DBSFWUSER', 'GGSYS', 'ANONYMOUS', 'CTXSYS', 'DVSYS', 'DVF', 
-            'GSMADMIN_INTERNAL', 'MDSYS', 'OLAPSYS', 'ORDDATA', 'ORDSYS', 
-            'ORDPLUGINS', 'SI_INFORMTN_SCHEMA', 'WMSYS', 'XDB', 'LBACSYS', 
-            'OJVMSYS', 'APEX_PUBLIC_USER', 'APEX_040000', 'FLOWS_FILES') 
-            ORDER BY OWNER
-            """;
-        return jdbcTemplate.queryForList(sql, String.class);
-    }
-
-    /**
-     * Belirli şemadaki tabloları getirir (HIS içermeyenler)
-     */
-    public List<String> findTablesWithoutHis(String schema) {
-        String sql = "SELECT TABLE_NAME FROM ALL_TABLES WHERE OWNER = ? AND TABLE_NAME NOT LIKE '%HIS%' ORDER BY TABLE_NAME";
-        return jdbcTemplate.queryForList(sql, String.class, schema.toUpperCase());
-    }
-
-    /**
-     * History tablosunun var olup olmadığını kontrol eder
-     */
-    public boolean historyTableExists(String schema, String hisTableName) {
-        String sql = "SELECT COUNT(*) FROM ALL_TABLES WHERE OWNER = ? AND TABLE_NAME = ?";
-        Integer count = jdbcTemplate.queryForObject(sql, Integer.class, schema.toUpperCase(), hisTableName.toUpperCase());
-        return count != null && count > 0;
-    }
-
-    /**
-     * Nesneyi siler (TRIGGER, TABLE, SEQUENCE) - varsa
-     */
-    public void dropIfExists(String objectType, String schema, String objectName) {
-        try {
-            String dropSql = String.format("DROP %s %s.%s", objectType, schema, objectName);
-            jdbcTemplate.execute(dropSql);
-            System.out.println(objectType + " silindi: " + objectName);
-        } catch (Exception e) {
-            System.out.println(objectType + " bulunamadı (yeni oluşturulacak): " + objectName);
-        }
     }
 }
