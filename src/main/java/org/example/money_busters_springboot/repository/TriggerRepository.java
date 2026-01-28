@@ -122,9 +122,30 @@ public class TriggerRepository {
 
     // --- BURADAN AŞAĞISINI EKLE ---
 
-    // 1. Temiz Şema Listesi (Sistem dosyalarını görmez)
+    // 1. Temiz Şema Listesi (Sadece GRANT yetkisi olanlar)
     public List<String> findAllSchemasFiltered() {
-        String sql = "SELECT DISTINCT owner FROM all_tables WHERE owner NOT IN ('SYS', 'SYSTEM', 'DBSNMP', 'OUTLN', 'XDB', 'WMSYS', 'APEX_040000', 'MDSYS', 'CTXSYS', 'ORDSYS') ORDER BY owner";
+        // Kullanıcının yetkili olduğu şemaları getir (sistem şemalarını hariç tut)
+        String sql = """
+            SELECT DISTINCT owner 
+            FROM all_tables 
+            WHERE owner NOT IN ('SYS', 'SYSTEM', 'DBSNMP', 'OUTLN', 'XDB', 'WMSYS', 
+                                'APEX_040000', 'MDSYS', 'CTXSYS', 'ORDSYS', 'EXFSYS',
+                                'ORDDATA', 'SYSMAN', 'OLAPSYS', 'FLOWS_FILES', 'APPQOSSYS')
+            AND owner IN (
+                -- Kullanıcının kendi şeması
+                SELECT username FROM user_users
+                UNION
+                -- INSERT yetkisi olanlar
+                SELECT table_schema FROM all_tab_privs 
+                WHERE grantee = USER AND privilege = 'INSERT'
+                UNION
+                -- Rol üzerinden alınan yetkiler
+                SELECT table_schema FROM all_tab_privs 
+                WHERE grantee IN (SELECT granted_role FROM user_role_privs) 
+                AND privilege = 'INSERT'
+            )
+            ORDER BY owner
+            """;
         return jdbcTemplate.queryForList(sql, String.class);
     }
 
