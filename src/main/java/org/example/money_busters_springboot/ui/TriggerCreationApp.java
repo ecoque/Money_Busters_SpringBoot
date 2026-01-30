@@ -14,6 +14,7 @@ import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.example.money_busters_springboot.MoneyBustersSpringBootApplication;
 import org.example.money_busters_springboot.service.TriggerService;
+import org.example.money_busters_springboot.ui.Launcher;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -32,6 +33,8 @@ public class TriggerCreationApp extends Application {
 
     @Override
     public void start(Stage primaryStage) {
+        javafx.application.Platform.setImplicitExit(false);
+
         this.primaryStage = primaryStage;
         
         // Uygulama ikonunu yükle ve sakla
@@ -52,6 +55,22 @@ public class TriggerCreationApp extends Application {
         mainLayout.setPadding(new Insets(15, 30, 15, 30));
         mainLayout.setStyle("-fx-background-color: #f5f5f5;");
 
+        HBox topBar = new HBox();
+        topBar.setAlignment(Pos.CENTER_RIGHT); // Sağa yasla
+
+        Button logoutBtn = new Button("Çıkış Yap");
+        logoutBtn.setStyle(
+                "-fx-background-color: #e53935;" + // Kırmızımsı renk
+                        "-fx-text-fill: white;" +
+                        "-fx-font-weight: bold;" +
+                        "-fx-background-radius: 4;" +
+                        "-fx-font-size: 11px;" +
+                        "-fx-cursor: hand;"
+        );
+        // Çıkış Butonuna Basınca Ne Olacak?
+        logoutBtn.setOnAction(e -> handleLogout());
+
+        topBar.getChildren().add(logoutBtn);
         // Radio butonları ortaya hizalı
         HBox radioBox = new HBox(10); 
         radioBox.setAlignment(Pos.CENTER);
@@ -129,12 +148,32 @@ public class TriggerCreationApp extends Application {
 
         schemaComboBox.setOnAction(e -> loadTables(schemaComboBox.getValue()));
 
-        mainLayout.getChildren().addAll(radioBox, formGrid, btnBox);
+        mainLayout.getChildren().addAll(topBar, radioBox, formGrid, btnBox);
         loadSchemas();
 
-        primaryStage.setScene(new Scene(mainLayout, 480, 210));
+        primaryStage.setScene(new Scene(mainLayout, 480, 250)); // Yüksekliği biraz artırdım (210 -> 250)
         primaryStage.setTitle("Trigger Automation");
         primaryStage.show();
+    }
+
+    // --- YENİ EKLENEN: ÇIKIŞ METODU ---
+    private void handleLogout() {
+        // 1. Mevcut JavaFX penceresini kapat
+        primaryStage.close();
+
+        // 2. Arka plandaki Spring Boot ve Veritabanı bağlantısını kes
+        MoneyBustersSpringBootApplication.stopApp();
+
+        // 3. Launcher'ı (Giriş Ekranı) tekrar başlat
+        // Swing (Launcher) ve JavaFX farklı threadlerde olduğu için yeni bir thread açıyoruz.
+        new Thread(() -> {
+            try {
+                // Launcher'ın main metodunu çağırarak giriş ekranını aç
+                Launcher.main(new String[]{});
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }).start();
     }
 
     private void loadSchemas() {

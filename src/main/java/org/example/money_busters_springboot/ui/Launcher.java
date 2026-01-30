@@ -4,44 +4,43 @@ import org.example.money_busters_springboot.MoneyBustersSpringBootApplication;
 
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.FocusAdapter;
+import java.awt.event.FocusEvent;
 import java.util.Base64;
 import java.util.prefs.Preferences;
 
 public class Launcher {
 
-    // Ayarların kaydedileceği anahtar kelimeler
-    private static final String PREF_URL = "db_url";
-    private static final String PREF_USER = "db_user";
-    private static final String PREF_PASS = "db_pass";
-    private static final String PREF_REMEMBER = "remember_me";
+    // Sadece son girilen kullanıcı adını ve URL'i genel tutuyoruz.
+    private static final String PREF_LAST_USER = "last_user";
+    private static final String PREF_LAST_URL = "last_url";
+
+    // Şifreler artık dinamik olarak saklanacak: "pass_KULLANICIADI" şeklinde.
 
     public static void main(String[] args) {
         // Modern Görünüm
+
+
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ignored) {}
 
-        // --- AYARLARI YÜKLE ---
         Preferences prefs = Preferences.userNodeForPackage(Launcher.class);
-        boolean isRemembered = prefs.getBoolean(PREF_REMEMBER, false);
 
-        // Varsayılan Değerler (Eğer kayıtlı yoksa bunlar gelir)
-        String defaultUrl = "jdbc:oracle:thin:@localhost:1521/XEPDB1";
-        String defaultUser = "UPT";
-        String defaultPass = "upt123";
+        // 1. Son kullanılan URL ve Kullanıcı Adını getir
+        String defaultUrl = prefs.get(PREF_LAST_URL, "jdbc:oracle:thin:@localhost:1521/XEPDB1");
+        String lastUser = prefs.get(PREF_LAST_USER, "");
 
-        // Eğer "Beni Hatırla" seçiliyse kayıtlıları yükle
-        if (isRemembered) {
-            defaultUrl = prefs.get(PREF_URL, defaultUrl);
-            defaultUser = prefs.get(PREF_USER, defaultUser);
-            // Şifreyi çözelim (Base64 decode)
-            String encodedPass = prefs.get(PREF_PASS, "");
-            if (!encodedPass.isEmpty()) {
+        // O kullanıcının şifresini bulmaya çalış
+        String loadedPass = "";
+        boolean isRemembered = false;
+
+        if (!lastUser.isEmpty()) {
+            String savedPass = prefs.get("pass_" + lastUser, "");
+            if (!savedPass.isEmpty()) {
                 try {
-                    defaultPass = new String(Base64.getDecoder().decode(encodedPass));
-                } catch (Exception e) { defaultPass = ""; }
+                    loadedPass = new String(Base64.getDecoder().decode(savedPass));
+                    isRemembered = true; // Şifre varsa "Beni Hatırla" tikli gelsin
+                } catch (Exception e) { loadedPass = ""; }
             }
-        } else {
-            // Hatırlama yoksa şifre alanını boş getir (Güvenlik)
-            defaultPass = "";
         }
 
         while (true) {
@@ -50,30 +49,53 @@ public class Launcher {
             cs.fill = GridBagConstraints.HORIZONTAL;
             cs.insets = new Insets(5, 5, 5, 5);
 
-            // --- URL ALANI (GİZLİ) ---
+            // --- URL ---
             cs.gridx = 0; cs.gridy = 0; panel.add(new JLabel("DB URL:"), cs);
             JPasswordField tfUrl = new JPasswordField(defaultUrl, 20);
-            tfUrl.setEchoChar('*'); // Gizli Karakter
+            tfUrl.setEchoChar('*');
             cs.gridx = 1; cs.gridy = 0; panel.add(tfUrl, cs);
 
             // --- USERNAME ---
             cs.gridx = 0; cs.gridy = 1; panel.add(new JLabel("Username:"), cs);
-            JTextField tfUser = new JTextField(defaultUser, 20);
+            JTextField tfUser = new JTextField(lastUser, 20);
             cs.gridx = 1; cs.gridy = 1; panel.add(tfUser, cs);
 
             // --- PASSWORD ---
             cs.gridx = 0; cs.gridy = 2; panel.add(new JLabel("Password:"), cs);
-            JPasswordField tfPass = new JPasswordField(defaultPass, 20);
+            JPasswordField tfPass = new JPasswordField(loadedPass, 20);
             cs.gridx = 1; cs.gridy = 2; panel.add(tfPass, cs);
 
-            // --- BENİ HATIRLA CHECKBOX (YENİ) ---
+            // --- BENİ HATIRLA ---
             cs.gridx = 1; cs.gridy = 3;
-            JCheckBox cbRemember = new JCheckBox("Beni Hatırla", isRemembered);
+            JCheckBox cbRemember = new JCheckBox("Şifreyi Hatırla", isRemembered);
             panel.add(cbRemember, cs);
+
+            // --- AKILLI DOLDURMA (User değişince şifreyi getir) ---
+            tfUser.addFocusListener(new FocusAdapter() {
+                @Override
+                public void focusLost(FocusEvent e) {
+                    String currentUser = tfUser.getText().trim();
+                    if (!currentUser.isEmpty()) {
+                        // Bu kullanıcı için kayıtlı şifre var mı bak
+                        String savedPass = prefs.get("pass_" + currentUser, "");
+                        if (!savedPass.isEmpty()) {
+                            try {
+                                String decoded = new String(Base64.getDecoder().decode(savedPass));
+                                tfPass.setText(decoded);
+                                cbRemember.setSelected(true);
+                            } catch (Exception ex) { }
+                        } else {
+                            // Yeni kullanıcı girdiyse şifre alanını temizle
+                            tfPass.setText("");
+                            cbRemember.setSelected(false);
+                        }
+                    }
+                }
+            });
 
             // --- DİYALOG ---
             String[] options = {"Bağlan", "İptal"};
-            int option = JOptionPane.showOptionDialog(null, panel, "Money Busters - Giriş",
+            int option = JOptionPane.showOptionDialog(null, panel, "Money Busters - Güvenli Giriş",
                     JOptionPane.NO_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, options[0]);
 
             if (option != 0) System.exit(0);
@@ -88,19 +110,19 @@ public class Launcher {
                 continue;
             }
 
-            // --- KAYIT İŞLEMİ (Save) ---
+            // --- KAYIT MANTIĞI (DÜZELTİLDİ) ---
+            // Her zaman son URL ve Kullanıcıyı kaydet (Kolaylık olsun)
+            prefs.put(PREF_LAST_URL, url);
+            prefs.put(PREF_LAST_USER, user);
+
             if (cbRemember.isSelected()) {
-                prefs.put(PREF_URL, url);
-                prefs.put(PREF_USER, user);
-                // Şifreyi basitçe şifrele (Base64 encode)
-                prefs.put(PREF_PASS, Base64.getEncoder().encodeToString(pass.getBytes()));
-                prefs.putBoolean(PREF_REMEMBER, true);
+                // Şifreyi BU KULLANICI ADINA ÖZEL anahtarla kaydet
+                // Örn: pass_UPT, pass_KEREM, pass_AHMET
+                String encodedPass = Base64.getEncoder().encodeToString(pass.getBytes());
+                prefs.put("pass_" + user, encodedPass);
             } else {
-                // Tiki kaldırdıysa bilgileri unut
-                prefs.remove(PREF_URL);
-                prefs.remove(PREF_USER);
-                prefs.remove(PREF_PASS);
-                prefs.putBoolean(PREF_REMEMBER, false);
+                // Tiki kaldırdıysa SADECE BU KULLANICININ şifresini unut
+                prefs.remove("pass_" + user);
             }
 
             // --- SİSTEME YÜKLE ---
