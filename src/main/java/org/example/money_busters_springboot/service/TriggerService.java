@@ -2,6 +2,7 @@ package org.example.money_busters_springboot.service;
 
 import org.example.money_busters_springboot.model.TriggerMetadata;
 import org.example.money_busters_springboot.repository.TriggerRepository;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -18,6 +19,9 @@ public class TriggerService {
     private final TriggerGeneratorService generator;
     private final JdbcTemplate jdbcTemplate;
 
+    @Value("${spring.datasource.username}")
+    private String currentDbUser;
+
     public TriggerService(TriggerRepository repository, TriggerGeneratorService generator, JdbcTemplate jdbcTemplate) {
         this.repository = repository;
         this.generator = generator;
@@ -25,12 +29,22 @@ public class TriggerService {
     }
 
     // --- CONTROLLER İÇİN EKLENEN EKSİK METODLAR ---
+    public void createInsertTrigger(String tableName) {
+        String schema = getCurrentSchemaOrThrow();
+        processTriggerRequest(schema, tableName, true);
+    }
+
+    // BU METODU EKLEMEN GEREKİYOR 👇
     public void createInsertTrigger(String schema, String tableName) {
         processTriggerRequest(schema, tableName, true);
     }
 
     public Map<String, String> generateAllScripts(String tableName) {
-        return processTriggerRequest("UPT", tableName, false); // Varsayılan UPT şeması
+        // ESKİSİ: (currentDbUser != null) ? currentDbUser : "UPT"; ❌
+
+        // YENİSİ: Kullanıcı yoksa HATA ver! ✅
+        String schema = getCurrentSchemaOrThrow();
+        return processTriggerRequest(schema, tableName, false);
     }
 
     // --- MEVCUT METODLAR ---
@@ -136,6 +150,13 @@ public class TriggerService {
                 jdbcTemplate.execute(generator.generateAlterTableAddColumnSql(schema, table + "_HIS", col));
             }
         }
+    }
+
+    private String getCurrentSchemaOrThrow() {
+        if (currentDbUser == null || currentDbUser.trim().isEmpty()) {
+            throw new IllegalStateException("HATA: Sisteme giriş yapmış aktif bir veritabanı kullanıcısı bulunamadı!");
+        }
+        return currentDbUser.toUpperCase();
     }
 
     public List<TriggerMetadata> getAllTriggers() { return repository.findAllTriggers(); }

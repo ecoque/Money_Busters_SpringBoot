@@ -4,6 +4,7 @@ import org.example.money_busters_springboot.model.TriggerMetadata;
 import org.example.money_busters_springboot.service.TriggerService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.HashMap;
 import java.util.List;
@@ -14,6 +15,9 @@ import java.util.Map;
 public class TriggerController {
 
     private final TriggerService triggerService;
+
+    @Value("${spring.datasource.username}")
+    private String currentDbUser;
 
     public TriggerController(TriggerService triggerService) {
         this.triggerService = triggerService;
@@ -80,13 +84,32 @@ public class TriggerController {
        =========================== */
 
     @PostMapping("/create/{tableName}")
-    public ResponseEntity<String> createInsertTrigger(@PathVariable String tableName) {
+    public ResponseEntity<String> createInsertTrigger(
+            @PathVariable String tableName,
+            @RequestParam(required = false) String schema
+    ) {
         try {
-            triggerService.createInsertTrigger("UPT", tableName.toUpperCase());
-            return ResponseEntity.ok("Trigger oluşturuldu: TRG_" + tableName);
+            String targetSchema;
+
+            // 1. Web isteğinde özel şema var mı?
+            if (schema != null && !schema.isEmpty()) {
+                targetSchema = schema.toUpperCase();
+            }
+            // 2. Yoksa giriş yapan kullanıcıyı al
+            else if (currentDbUser != null && !currentDbUser.isEmpty()) {
+                targetSchema = currentDbUser.toUpperCase();
+            }
+            // 3. O DA YOKSA? Artık "UPT" yok, HATA var!
+            else {
+                return ResponseEntity.status(401) // 401: Unauthorized (Yetkisiz)
+                        .body("HATA: Şema belirlenemedi ve aktif kullanıcı bulunamadı.");
+            }
+
+            triggerService.createInsertTrigger(targetSchema, tableName.toUpperCase());
+
+            return ResponseEntity.ok("Trigger oluşturuldu. Şema: " + targetSchema + " Tablo: " + tableName.toUpperCase());
         } catch (Exception e) {
-            return ResponseEntity.status(500)
-                    .body("Hata: " + e.getMessage());
+            return ResponseEntity.status(500).body("Hata: " + e.getMessage());
         }
     }
 
