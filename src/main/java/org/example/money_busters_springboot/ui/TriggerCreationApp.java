@@ -29,7 +29,7 @@ public class TriggerCreationApp extends Application {
     private RadioButton scriptOnlyRadioButton;
     private TriggerService triggerService;
     private Stage primaryStage;
-    private Image appIcon; // Tüm popup'larda kullanılacak ikon
+    private Image appIcon;
 
     @Override
     public void start(Stage primaryStage) {
@@ -37,7 +37,7 @@ public class TriggerCreationApp extends Application {
 
         this.primaryStage = primaryStage;
         
-        // Uygulama ikonunu yükle ve sakla
+
         try {
             InputStream iconStream = getClass().getResourceAsStream("/icons/trigger_icon.png");
             if (iconStream != null) {
@@ -48,7 +48,6 @@ public class TriggerCreationApp extends Application {
             System.err.println("Icon yüklenemedi: " + e.getMessage());
         }
         
-        // SERVİS BAĞLANTISI
         this.triggerService = MoneyBustersSpringBootApplication.getBean(TriggerService.class);
 
         VBox mainLayout = new VBox(12);
@@ -56,22 +55,21 @@ public class TriggerCreationApp extends Application {
         mainLayout.setStyle("-fx-background-color: #f5f5f5;");
 
         HBox topBar = new HBox();
-        topBar.setAlignment(Pos.CENTER_RIGHT); // Sağa yasla
+        topBar.setAlignment(Pos.CENTER_RIGHT);
 
         Button logoutBtn = new Button("Çıkış Yap");
         logoutBtn.setStyle(
-                "-fx-background-color: #e53935;" + // Kırmızımsı renk
+                "-fx-background-color: #e53935;" +
                         "-fx-text-fill: white;" +
                         "-fx-font-weight: bold;" +
                         "-fx-background-radius: 4;" +
                         "-fx-font-size: 11px;" +
                         "-fx-cursor: hand;"
         );
-        // Çıkış Butonuna Basınca Ne Olacak?
+
         logoutBtn.setOnAction(e -> handleLogout());
 
         topBar.getChildren().add(logoutBtn);
-        // Radio butonları ortaya hizalı
         HBox radioBox = new HBox(10); 
         radioBox.setAlignment(Pos.CENTER);
         ToggleGroup modeGroup = new ToggleGroup();
@@ -86,8 +84,7 @@ public class TriggerCreationApp extends Application {
         formGrid.setHgap(12); 
         formGrid.setVgap(12);
         formGrid.setAlignment(Pos.CENTER);
-        
-        // Modern stil ComboBox'lar
+
         schemaComboBox = new ComboBox<>(); 
         schemaComboBox.setPrefWidth(280);
         schemaComboBox.setStyle(
@@ -151,24 +148,20 @@ public class TriggerCreationApp extends Application {
         mainLayout.getChildren().addAll(topBar, radioBox, formGrid, btnBox);
         loadSchemas();
 
-        primaryStage.setScene(new Scene(mainLayout, 480, 250)); // Yüksekliği biraz artırdım (210 -> 250)
+        primaryStage.setScene(new Scene(mainLayout, 480, 250));
         primaryStage.setTitle("Trigger Automation");
         primaryStage.show();
     }
 
-    // --- YENİ EKLENEN: ÇIKIŞ METODU ---
+
     private void handleLogout() {
-        // 1. Mevcut JavaFX penceresini kapat
         primaryStage.close();
 
-        // 2. Arka plandaki Spring Boot ve Veritabanı bağlantısını kes
         MoneyBustersSpringBootApplication.stopApp();
 
-        // 3. Launcher'ı (Giriş Ekranı) tekrar başlat
-        // Swing (Launcher) ve JavaFX farklı threadlerde olduğu için yeni bir thread açıyoruz.
+
         new Thread(() -> {
             try {
-                // Launcher'ın main metodunu çağırarak giriş ekranını aç
                 Launcher.main(new String[]{});
             } catch (Exception e) {
                 e.printStackTrace();
@@ -216,8 +209,7 @@ public class TriggerCreationApp extends Application {
         Dialog<Void> d = new Dialog<>(); 
         d.setTitle("Başarılı"); 
         d.setHeaderText("Scriptler Hazır!");
-        
-        // Dialog'a ikonu ekle
+
         Stage dialogStage = (Stage) d.getDialogPane().getScene().getWindow();
         if (appIcon != null && dialogStage != null) {
             dialogStage.getIcons().add(appIcon);
@@ -248,8 +240,7 @@ public class TriggerCreationApp extends Application {
         v.getChildren().addAll(new Label(exists ? "Güncelleme Yapıldı" : "Sıfırdan Oluşturuldu"), g, new Separator(), rbL, rbG);
         d.getDialogPane().setContent(v); 
         d.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
-        
-        // Dialog gösterilmeden önce ikonu ekle
+
         d.getDialogPane().sceneProperty().addListener((obs, oldScene, newScene) -> {
             if (newScene != null && appIcon != null) {
                 Stage stage = (Stage) newScene.getWindow();
@@ -277,7 +268,6 @@ public class TriggerCreationApp extends Application {
         return b;
     }
 
-    // Alert'lere ikon ekleyen yardımcı metod
     private void setAlertIcon(Alert alert) {
         if (appIcon != null) {
             alert.getDialogPane().sceneProperty().addListener((obs, oldScene, newScene) -> {
@@ -289,7 +279,6 @@ public class TriggerCreationApp extends Application {
         }
     }
 
-    // İkonlu Alert gösterme metodu
     private void showAlert(Alert.AlertType type, String title, String message) {
         Alert alert = new Alert(type, message);
         alert.setTitle(title);
@@ -297,7 +286,6 @@ public class TriggerCreationApp extends Application {
         alert.show();
     }
 
-    // --- İŞTE EKSİK OLAN MAIN METODU BURADA ---
     public static void main(String[] args) {
         launch(args);
     }

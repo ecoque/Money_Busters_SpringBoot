@@ -5,9 +5,6 @@ import java.util.Map;
 
 import org.yaml.snakeyaml.Yaml;
 
-/**
- * JavaFX uygulaması için application.yml'den veritabanı bilgilerini okuyan yardımcı sınıf
- */
 public class DatabaseConfigLoader {
 
     private static String url;

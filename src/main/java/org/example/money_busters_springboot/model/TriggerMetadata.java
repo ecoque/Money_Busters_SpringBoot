@@ -1,8 +1,6 @@
 package org.example.money_busters_springboot.model;
 
-/**
- * Trigger metadata bilgilerini tutan model sınıfı
- */
+
 public class TriggerMetadata {
 
     private String triggerName;
@@ -25,7 +23,6 @@ public class TriggerMetadata {
         this.triggerBody = triggerBody;
     }
 
-    // Getters and Setters
     public String getTriggerName() {
         return triggerName;
     }

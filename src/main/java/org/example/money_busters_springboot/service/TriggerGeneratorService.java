@@ -16,9 +16,6 @@ public class TriggerGeneratorService {
         this.triggerRepository = triggerRepository;
     }
 
-    // --- EKSİK OLAN METODLAR EKLENDİ ---
-
-    // 1. Ana Tablo DDL (Controller bunu arıyordu)
     public String generateMainTableDdl(String schema, String tableName) {
         List<Map<String, Object>> columns = triggerRepository.getTableColumns(schema, tableName);
         StringBuilder ddl = new StringBuilder(String.format("CREATE TABLE %s.%s (\n", schema, tableName));
@@ -32,12 +29,11 @@ public class TriggerGeneratorService {
         return ddl.append(");").toString();
     }
 
-    // 2. Sequence DDL (Controller bunu arıyordu)
     public String generateSequenceDdl(String schema, String tableName) {
         return String.format("CREATE SEQUENCE %s.SEQ_%s_HIS START WITH 1 INCREMENT BY 1", schema, tableName.toUpperCase());
     }
 
-    // --- MEVCUT METODLAR ---
+
 
     public String generateAlterTableAddColumnSql(String schema, String tableName, Map<String, Object> col) {
         String colName = col.get("COLUMN_NAME").toString();

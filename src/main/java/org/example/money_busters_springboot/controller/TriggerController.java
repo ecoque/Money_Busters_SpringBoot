@@ -23,10 +23,6 @@ public class TriggerController {
         this.triggerService = triggerService;
     }
 
-    /* ===========================
-       TRIGGER LİSTELEME
-       =========================== */
-
     @GetMapping
     public ResponseEntity<List<TriggerMetadata>> getAllTriggers() {
         return ResponseEntity.ok(triggerService.getAllTriggers());
@@ -44,10 +40,6 @@ public class TriggerController {
                 ? ResponseEntity.notFound().build()
                 : ResponseEntity.ok(trigger);
     }
-
-    /* ===========================
-       TRIGGER ENABLE / DISABLE
-       =========================== */
 
     @PostMapping("/{triggerName}/enable")
     public ResponseEntity<Map<String, String>> enableTrigger(@PathVariable String triggerName) {
@@ -79,9 +71,6 @@ public class TriggerController {
         }
     }
 
-    /* ===========================
-       TRIGGER OLUŞTURMA (ASIL İŞ)
-       =========================== */
 
     @PostMapping("/create/{tableName}")
     public ResponseEntity<String> createInsertTrigger(
@@ -91,17 +80,14 @@ public class TriggerController {
         try {
             String targetSchema;
 
-            // 1. Web isteğinde özel şema var mı?
             if (schema != null && !schema.isEmpty()) {
                 targetSchema = schema.toUpperCase();
             }
-            // 2. Yoksa giriş yapan kullanıcıyı al
             else if (currentDbUser != null && !currentDbUser.isEmpty()) {
                 targetSchema = currentDbUser.toUpperCase();
             }
-            // 3. O DA YOKSA? Artık "UPT" yok, HATA var!
             else {
-                return ResponseEntity.status(401) // 401: Unauthorized (Yetkisiz)
+                return ResponseEntity.status(401)
                         .body("HATA: Şema belirlenemedi ve aktif kullanıcı bulunamadı.");
             }
 
@@ -115,9 +101,7 @@ public class TriggerController {
 
 
 
-    /**
-     * Belirtilen tablo için tüm otomasyon scriptlerini döndürür.
-     */
+
     @GetMapping("/generate-scripts/{tableName}")
     public ResponseEntity<Map<String, String>> getScripts(@PathVariable String tableName) {
         try {
@@ -127,7 +111,6 @@ public class TriggerController {
             return ResponseEntity.status(500).body(null);
         }
     }
-    // TriggerController.java içine eklenebilir
 
     @GetMapping("/download-script/{tableName}/{type}")
     public ResponseEntity<byte[]> downloadScript(@PathVariable String tableName, @PathVariable String type) {
@@ -135,7 +118,6 @@ public class TriggerController {
         String content = "";
         String fileName = tableName.toLowerCase();
 
-        // İstenen türe göre içeriği seçiyoruz
         if ("main".equalsIgnoreCase(type)) {
             content = scripts.get("main.ddl");
             fileName += ".ddl";
