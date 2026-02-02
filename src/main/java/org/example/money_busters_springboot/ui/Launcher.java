@@ -26,6 +26,16 @@ public class Launcher {
 
         try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception ignored) {}
 
+        try {
+            URL iconUrl = Launcher.class.getResource("/icons/trigger_icon.png");
+            if (iconUrl != null) {
+                Image appIcon = Toolkit.getDefaultToolkit().getImage(iconUrl);
+                if (Taskbar.isTaskbarSupported() && Taskbar.getTaskbar().isSupported(Taskbar.Feature.ICON_IMAGE)) {
+                    Taskbar.getTaskbar().setIconImage(appIcon);
+                }
+            }
+        } catch (Exception ignored) {}
+
         Preferences prefs = Preferences.userNodeForPackage(Launcher.class);
 
         // 1. Son kullanılan URL ve Kullanıcı Adını getir
@@ -75,9 +85,22 @@ public class Launcher {
             panel.add(cbRemember, cs);
 
             // --- DİYALOG ---
+            // --- 2. GÖREV ÇUBUĞUNDA GÖRÜNMESİ İÇİN HAYALET PENCERE ---
+            JFrame ghostFrame = new JFrame("Money Busters Giriş");
+            URL iconUrl = Launcher.class.getResource("/icons/trigger_icon.png");
+            if (iconUrl != null) {
+                ghostFrame.setIconImage(Toolkit.getDefaultToolkit().getImage(iconUrl));
+            }
+            ghostFrame.setUndecorated(true);
+            ghostFrame.setVisible(true);    // Taskbar'da görünmesi için şart!
+            ghostFrame.setLocationRelativeTo(null);
+
             String[] options = {"Bağlan", "İptal"};
-            int option = JOptionPane.showOptionDialog(null, panel, "Money Busters - Güvenli Giriş",
+            // 'null' yerine 'ghostFrame' kullanıyoruz 👇
+            int option = JOptionPane.showOptionDialog(ghostFrame, panel, "Money Busters - Güvenli Giriş",
                     JOptionPane.NO_OPTION, JOptionPane.PLAIN_MESSAGE, null, options, options[0]);
+
+            ghostFrame.dispose();
 
             if (option != 0) System.exit(0);
 
