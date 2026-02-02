@@ -2,6 +2,9 @@ package org.example.money_busters_springboot.ui;
 
 import org.example.money_busters_springboot.MoneyBustersSpringBootApplication;
 
+import java.awt.Taskbar;
+import java.awt.Toolkit;
+import java.net.URL;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.FocusAdapter;
@@ -63,35 +66,13 @@ public class Launcher {
             // --- PASSWORD ---
             cs.gridx = 0; cs.gridy = 2; panel.add(new JLabel("Password:"), cs);
             JPasswordField tfPass = new JPasswordField(loadedPass, 20);
+            loadedPass = "";
             cs.gridx = 1; cs.gridy = 2; panel.add(tfPass, cs);
 
             // --- BENİ HATIRLA ---
             cs.gridx = 1; cs.gridy = 3;
             JCheckBox cbRemember = new JCheckBox("Şifreyi Hatırla", isRemembered);
             panel.add(cbRemember, cs);
-
-            // --- AKILLI DOLDURMA (User değişince şifreyi getir) ---
-            tfUser.addFocusListener(new FocusAdapter() {
-                @Override
-                public void focusLost(FocusEvent e) {
-                    String currentUser = tfUser.getText().trim();
-                    if (!currentUser.isEmpty()) {
-                        // Bu kullanıcı için kayıtlı şifre var mı bak
-                        String savedPass = prefs.get("pass_" + currentUser, "");
-                        if (!savedPass.isEmpty()) {
-                            try {
-                                String decoded = new String(Base64.getDecoder().decode(savedPass));
-                                tfPass.setText(decoded);
-                                cbRemember.setSelected(true);
-                            } catch (Exception ex) { }
-                        } else {
-                            // Yeni kullanıcı girdiyse şifre alanını temizle
-                            tfPass.setText("");
-                            cbRemember.setSelected(false);
-                        }
-                    }
-                }
-            });
 
             // --- DİYALOG ---
             String[] options = {"Bağlan", "İptal"};
