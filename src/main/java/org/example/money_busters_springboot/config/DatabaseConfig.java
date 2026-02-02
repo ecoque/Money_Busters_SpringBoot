@@ -3,10 +3,6 @@ package org.example.money_busters_springboot.config;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.context.annotation.Configuration;
 
-/**
- * Veritabanı bağlantı bilgilerini tutan konfigürasyon sınıfı
- * application.yml'den değerleri okur
- */
 @Configuration
 @ConfigurationProperties(prefix = "spring.datasource")
 public class DatabaseConfig {
@@ -16,7 +12,6 @@ public class DatabaseConfig {
     private String password;
     private String driverClassName;
 
-    // Getters and Setters
     public String getUrl() {
         return url;
     }

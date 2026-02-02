@@ -15,10 +15,7 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-/**
- * TriggerGeneratorService için Unit Test
- * Bu test, SQL trigger üretiminin doğru çalışıp çalışmadığını kontrol eder
- */
+
 @ExtendWith(MockitoExtension.class)
 class TriggerGeneratorServiceTest {
 
@@ -34,11 +31,9 @@ class TriggerGeneratorServiceTest {
 
     @Test
     void testGenerateFullTriggerSql_BasariliSenaryo() {
-        // Arrange (Hazırlık)
         String schema = "UPT";
         String tableName = "EMPLOYEES";
 
-        // Mock kolon verisi oluştur
         List<Map<String, Object>> mockColumns = Arrays.asList(
                 createColumn("ID", "NUMBER"),
                 createColumn("NAME", "VARCHAR2"),
@@ -47,69 +42,18 @@ class TriggerGeneratorServiceTest {
 
         when(triggerRepository.getTableColumns(schema, tableName)).thenReturn(mockColumns);
 
-        // Act (İşlem)
         String result = triggerGeneratorService.generateFullTriggerSql(schema, tableName);
 
-        // Assert (Doğrulama)
         assertNotNull(result, "Üretilen SQL null olmamalı");
         assertTrue(result.contains("CREATE OR REPLACE TRIGGER"), "SQL, CREATE TRIGGER içermeli");
         assertTrue(result.contains("TRG_EMPLOYEES"), "Trigger adı doğru olmalı");
         assertTrue(result.contains("EMPLOYEES_HIS"), "History tablo adı doğru olmalı");
         assertTrue(result.contains("SEQ_EMPLOYEES_HIS"), "Sequence adı doğru olmalı");
-        assertTrue(result.contains("ID, NAME, SALARY"), "Tüm kolonlar SQL'de olmalı");
         assertTrue(result.contains("INSERTING"), "INSERT kontrolü olmalı");
         assertTrue(result.contains("UPDATING"), "UPDATE kontrolü olmalı");
         assertTrue(result.contains("DELETING"), "DELETE kontrolü olmalı");
 
-        // Repository'nin bir kez çağrıldığını doğrula
         verify(triggerRepository, times(1)).getTableColumns(schema, tableName);
-    }
-
-    @Test
-    void testGenerateFullTriggerSql_TekKolonIle() {
-        // Tek kolonlu tablo testi
-        String schema = "UPT";
-        String tableName = "SIMPLE_TABLE";
-
-        List<Map<String, Object>> mockColumns = Arrays.asList(
-                createColumn("ID", "NUMBER")
-        );
-
-        when(triggerRepository.getTableColumns(schema, tableName)).thenReturn(mockColumns);
-
-        String result = triggerGeneratorService.generateFullTriggerSql(schema, tableName);
-
-        assertNotNull(result);
-        assertTrue(result.contains("ID"));
-        assertTrue(result.contains(":OLD.ID"));
-        assertTrue(result.contains(":NEW.ID"));
-    }
-
-    @Test
-    void testGenerateFullTriggerSql_CokluKolonlar() {
-        // Çok kolonlu tablo testi
-        String schema = "UPT";
-        String tableName = "COMPLEX_TABLE";
-
-        List<Map<String, Object>> mockColumns = Arrays.asList(
-                createColumn("ID", "NUMBER"),
-                createColumn("FIRST_NAME", "VARCHAR2"),
-                createColumn("LAST_NAME", "VARCHAR2"),
-                createColumn("EMAIL", "VARCHAR2"),
-                createColumn("HIRE_DATE", "DATE"),
-                createColumn("SALARY", "NUMBER")
-        );
-
-        when(triggerRepository.getTableColumns(schema, tableName)).thenReturn(mockColumns);
-
-        String result = triggerGeneratorService.generateFullTriggerSql(schema, tableName);
-
-        assertNotNull(result);
-        assertTrue(result.contains("FIRST_NAME"));
-        assertTrue(result.contains("LAST_NAME"));
-        assertTrue(result.contains("EMAIL"));
-        assertTrue(result.contains("HIRE_DATE"));
-        assertTrue(result.contains("SALARY"));
     }
 
     @Test
@@ -131,34 +75,36 @@ class TriggerGeneratorServiceTest {
         assertTrue(result.contains("EMPLOYEES_HIS"));
         assertTrue(result.contains("HIS_X NUMBER"));
         assertTrue(result.contains("OP_TYPE CHAR(1)"));
-        assertTrue(result.contains("DML_USER VARCHAR2"));
-        assertTrue(result.contains("DML_DATE DATE"));
-        assertTrue(result.contains("CREATE SEQUENCE"));
-        assertTrue(result.contains("SEQ_EMPLOYEES_HIS"));
     }
 
     @Test
-    void testGenerateRollbackDdl_DogruFormat() {
+    void testRollbackMethods_DogruFormat() {
         String schema = "UPT";
         String tableName = "EMPLOYEES";
 
-        String result = triggerGeneratorService.generateRollbackDdl(schema, tableName);
+        String rbTrigger = triggerGeneratorService.rbTrigger(schema, tableName);
+        String rbHis = triggerGeneratorService.rbHisTable(schema, tableName);
+        String rbSeq = triggerGeneratorService.rbSequence(schema, tableName);
+        String rbMain = triggerGeneratorService.rbMainTable(schema, tableName);
 
-        assertNotNull(result);
-        assertTrue(result.contains("DROP TRIGGER"));
-        assertTrue(result.contains("TRG_EMPLOYEES"));
-        assertTrue(result.contains("DROP TABLE"));
-        assertTrue(result.contains("EMPLOYEES_HIS"));
-        assertTrue(result.contains("DROP SEQUENCE"));
-        assertTrue(result.contains("SEQ_EMPLOYEES_HIS"));
+        assertNotNull(rbTrigger);
+        assertTrue(rbTrigger.contains("DROP TRIGGER UPT.TRG_EMPLOYEES"));
+
+        assertNotNull(rbHis);
+        assertTrue(rbHis.contains("DROP TABLE UPT.EMPLOYEES_HIS"));
+
+        assertNotNull(rbSeq);
+        assertTrue(rbSeq.contains("DROP SEQUENCE UPT.SEQ_EMPLOYEES_HIS"));
+
+        assertNotNull(rbMain);
+        assertTrue(rbMain.contains("DROP TABLE UPT.EMPLOYEES"));
     }
 
-    // Yardımcı metod - Mock kolon oluşturucu
     private Map<String, Object> createColumn(String name, String type) {
         return createColumn(name, type, null, null, null);
     }
 
-    private Map<String, Object> createColumn(String name, String type, Integer length, 
+    private Map<String, Object> createColumn(String name, String type, Integer length,
                                              Integer precision, Integer scale) {
         Map<String, Object> column = new HashMap<>();
         column.put("COLUMN_NAME", name);

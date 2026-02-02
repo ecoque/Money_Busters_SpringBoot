@@ -3,10 +3,7 @@ package org.example.money_busters_springboot.dto;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Generic tablo verisi DTO
- * Herhangi bir tablo için kullanılabilir
- */
+
 public class GenericTableDataDTO {
     private String tableName;
     private List<String> columns;
@@ -21,7 +18,6 @@ public class GenericTableDataDTO {
         this.totalRows = rows.size();
     }
 
-    // Getter ve Setter'lar
     public String getTableName() {
         return tableName;
     }

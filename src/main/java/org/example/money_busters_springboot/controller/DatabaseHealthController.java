@@ -13,9 +13,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Database bağlantısını test etmek için controller
- */
 @RestController
 @RequestMapping("/api/health")
 public class DatabaseHealthController {
@@ -29,10 +26,6 @@ public class DatabaseHealthController {
         this.genericTableService = genericTableService;
     }
 
-    /**
-     * Database bağlantısını test eder
-     * GET /api/health/db
-     */
     @GetMapping("/db")
     public ResponseEntity<Map<String, Object>> checkDatabaseConnection() {
         Map<String, Object> response = new HashMap<>();
@@ -56,10 +49,7 @@ public class DatabaseHealthController {
         }
     }
 
-    /**
-     * Detaylı database bilgisi
-     * GET /api/health/db/details
-     */
+
     @GetMapping("/db/details")
     public ResponseEntity<Map<String, Object>> getDatabaseDetails() {
         Map<String, Object> response = new HashMap<>();
@@ -78,10 +68,7 @@ public class DatabaseHealthController {
         }
     }
 
-    /**
-     * Kullanıcıya ait tüm tabloları listeler
-     * GET /api/health/tables
-     */
+
     @GetMapping("/tables")
     public ResponseEntity<Map<String, Object>> getAllTables() {
         Map<String, Object> response = new HashMap<>();
@@ -104,12 +91,7 @@ public class DatabaseHealthController {
         }
     }
 
-    /**
-     * Generic tablo verilerini getirir
-     * GET /api/health/table/{tableName}
-     *
-     * Örnek: GET /api/health/table/DENEME_MUSTERI
-     */
+
     @GetMapping("/table/{tableName}")
     public ResponseEntity<Map<String, Object>> getTableData(@PathVariable String tableName) {
         Map<String, Object> response = new HashMap<>();
@@ -134,10 +116,7 @@ public class DatabaseHealthController {
         }
     }
 
-    /**
-     * Tablodaki kayıt sayısını döner
-     * GET /api/health/table/{tableName}/count
-     */
+
     @GetMapping("/table/{tableName}/count")
     public ResponseEntity<Map<String, Object>> getTableRowCount(@PathVariable String tableName) {
         Map<String, Object> response = new HashMap<>();

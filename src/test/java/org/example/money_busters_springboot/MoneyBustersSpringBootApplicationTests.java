@@ -22,27 +22,24 @@ class MoneyBustersSpringBootApplicationTests {
 
     @Test
     void contextLoads() {
-        // Context'in başarıyla yüklendiğini doğrula
         assertNotNull(applicationContext, "Application context yüklenmeliydi");
     }
 
     @Test
     void testTriggerServiceBeanExists() {
-        // TriggerService bean'inin var olduğunu kontrol et
+
         TriggerService triggerService = applicationContext.getBean(TriggerService.class);
         assertNotNull(triggerService, "TriggerService bean bulunmalıydı");
     }
 
     @Test
     void testTriggerGeneratorServiceBeanExists() {
-        // TriggerGeneratorService bean'inin var olduğunu kontrol et
         TriggerGeneratorService generatorService = applicationContext.getBean(TriggerGeneratorService.class);
         assertNotNull(generatorService, "TriggerGeneratorService bean bulunmalıydı");
     }
 
     @Test
     void testAllRequiredBeansAreLoaded() {
-        // Gerekli tüm bean'lerin yüklendiğini doğrula
         assertAll("Tüm servis bean'leri yüklenmeli",
                 () -> assertNotNull(applicationContext.getBean(TriggerService.class)),
                 () -> assertNotNull(applicationContext.getBean(TriggerGeneratorService.class))

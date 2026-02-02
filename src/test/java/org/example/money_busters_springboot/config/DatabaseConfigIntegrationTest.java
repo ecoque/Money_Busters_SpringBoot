@@ -9,13 +9,7 @@ import javax.sql.DataSource;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Database Configuration Integration Test
- * Bu test, veritabanı bağlantısının doğru yapılandırılıp yapılandırılmadığını kontrol eder
- * 
- * NOT: Bu test gerçek veritabanına bağlanır!
- * Veritabanı yoksa veya erişilemiyorsa test başarısız olur.
- */
+
 @SpringBootTest
 class DatabaseConfigIntegrationTest {
 
@@ -37,7 +31,7 @@ class DatabaseConfigIntegrationTest {
 
     @Test
     void testDatabaseConnection() {
-        // Gerçek veritabanına basit bir sorgu gönder
+
         assertDoesNotThrow(() -> {
             String result = jdbcTemplate.queryForObject(
                     "SELECT 'CONNECTION_OK' FROM DUAL", 

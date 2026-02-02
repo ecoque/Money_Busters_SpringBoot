@@ -4,6 +4,7 @@ import org.example.money_busters_springboot.model.TriggerMetadata;
 import org.example.money_busters_springboot.service.TriggerService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.beans.factory.annotation.Value;
 
 import java.util.HashMap;
 import java.util.List;
@@ -15,13 +16,12 @@ public class TriggerController {
 
     private final TriggerService triggerService;
 
+    @Value("${spring.datasource.username}")
+    private String currentDbUser;
+
     public TriggerController(TriggerService triggerService) {
         this.triggerService = triggerService;
     }
-
-    /* ===========================
-       TRIGGER LİSTELEME
-       =========================== */
 
     @GetMapping
     public ResponseEntity<List<TriggerMetadata>> getAllTriggers() {
@@ -40,10 +40,6 @@ public class TriggerController {
                 ? ResponseEntity.notFound().build()
                 : ResponseEntity.ok(trigger);
     }
-
-    /* ===========================
-       TRIGGER ENABLE / DISABLE
-       =========================== */
 
     @PostMapping("/{triggerName}/enable")
     public ResponseEntity<Map<String, String>> enableTrigger(@PathVariable String triggerName) {
@@ -75,26 +71,37 @@ public class TriggerController {
         }
     }
 
-    /* ===========================
-       TRIGGER OLUŞTURMA (ASIL İŞ)
-       =========================== */
 
     @PostMapping("/create/{tableName}")
-    public ResponseEntity<String> createInsertTrigger(@PathVariable String tableName) {
+    public ResponseEntity<String> createInsertTrigger(
+            @PathVariable String tableName,
+            @RequestParam(required = false) String schema
+    ) {
         try {
-            triggerService.createInsertTrigger("UPT", tableName.toUpperCase());
-            return ResponseEntity.ok("Trigger oluşturuldu: TRG_" + tableName);
+            String targetSchema;
+
+            if (schema != null && !schema.isEmpty()) {
+                targetSchema = schema.toUpperCase();
+            }
+            else if (currentDbUser != null && !currentDbUser.isEmpty()) {
+                targetSchema = currentDbUser.toUpperCase();
+            }
+            else {
+                return ResponseEntity.status(401)
+                        .body("HATA: Şema belirlenemedi ve aktif kullanıcı bulunamadı.");
+            }
+
+            triggerService.createInsertTrigger(targetSchema, tableName.toUpperCase());
+
+            return ResponseEntity.ok("Trigger oluşturuldu. Şema: " + targetSchema + " Tablo: " + tableName.toUpperCase());
         } catch (Exception e) {
-            return ResponseEntity.status(500)
-                    .body("Hata: " + e.getMessage());
+            return ResponseEntity.status(500).body("Hata: " + e.getMessage());
         }
     }
 
 
 
-    /**
-     * Belirtilen tablo için tüm otomasyon scriptlerini döndürür.
-     */
+
     @GetMapping("/generate-scripts/{tableName}")
     public ResponseEntity<Map<String, String>> getScripts(@PathVariable String tableName) {
         try {
@@ -104,7 +111,6 @@ public class TriggerController {
             return ResponseEntity.status(500).body(null);
         }
     }
-    // TriggerController.java içine eklenebilir
 
     @GetMapping("/download-script/{tableName}/{type}")
     public ResponseEntity<byte[]> downloadScript(@PathVariable String tableName, @PathVariable String type) {
@@ -112,7 +118,6 @@ public class TriggerController {
         String content = "";
         String fileName = tableName.toLowerCase();
 
-        // İstenen türe göre içeriği seçiyoruz
         if ("main".equalsIgnoreCase(type)) {
             content = scripts.get("main.ddl");
             fileName += ".ddl";
