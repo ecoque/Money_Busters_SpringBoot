@@ -61,11 +61,6 @@ public class TriggerService {
         boolean trgExists = repository.triggerExists(schema, trgName);
         boolean seqExists = repository.sequenceExists(schema, seqName);
 
-        System.out.println("--- DURUM KONTROLÜ (" + table + ") ---");
-        System.out.println("HIS Tablosu Var mı (" + hisName + "): " + hisExists);
-        System.out.println("Trigger Var mı (" + trgName + "): " + trgExists);
-        System.out.println("Sequence Var mı: " + seqExists);
-
         s.put("main", generator.generateMainTableDdl(schema, table));
         s.put("seq", generator.generateSequenceDdl(schema, table));
         s.put("trigger", generator.generateFullTriggerSql(schema, table));

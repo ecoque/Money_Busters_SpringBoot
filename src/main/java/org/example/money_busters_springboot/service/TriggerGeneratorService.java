@@ -33,8 +33,6 @@ public class TriggerGeneratorService {
         return String.format("CREATE SEQUENCE %s.SEQ_%s_HIS START WITH 1 INCREMENT BY 1", schema, tableName.toUpperCase());
     }
 
-
-
     public String generateAlterTableAddColumnSql(String schema, String tableName, Map<String, Object> col) {
         String colName = col.get("COLUMN_NAME").toString();
         String dataType = col.get("DATA_TYPE").toString();

@@ -49,7 +49,6 @@ public class DatabaseHealthController {
         }
     }
 
-
     @GetMapping("/db/details")
     public ResponseEntity<Map<String, Object>> getDatabaseDetails() {
         Map<String, Object> response = new HashMap<>();
@@ -67,7 +66,6 @@ public class DatabaseHealthController {
             return ResponseEntity.status(500).body(response);
         }
     }
-
 
     @GetMapping("/tables")
     public ResponseEntity<Map<String, Object>> getAllTables() {
@@ -90,7 +88,6 @@ public class DatabaseHealthController {
             return ResponseEntity.status(500).body(response);
         }
     }
-
 
     @GetMapping("/table/{tableName}")
     public ResponseEntity<Map<String, Object>> getTableData(@PathVariable String tableName) {
@@ -115,7 +112,6 @@ public class DatabaseHealthController {
             return ResponseEntity.status(500).body(response);
         }
     }
-
 
     @GetMapping("/table/{tableName}/count")
     public ResponseEntity<Map<String, Object>> getTableRowCount(@PathVariable String tableName) {

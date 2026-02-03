@@ -10,7 +10,6 @@ import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 
-
 @Repository
 public class TriggerRepository {
 
@@ -20,7 +19,6 @@ public class TriggerRepository {
         this.jdbcTemplate = jdbcTemplate;
     }
 
-
     public List<TriggerMetadata> findAllTriggers() {
         String sql = """
             SELECT TRIGGER_NAME, TABLE_NAME, TRIGGER_TYPE, TRIGGERING_EVENT, STATUS, TRIGGER_BODY
@@ -29,16 +27,6 @@ public class TriggerRepository {
             """;
 
         return jdbcTemplate.query(sql, new TriggerRowMapper());
-    }
-    public void execute(String sql) {
-        jdbcTemplate.execute(sql);
-    }
-
-
-
-    public List<String> findAllTables() {
-        String sql = "SELECT TABLE_NAME FROM USER_TABLES ORDER BY TABLE_NAME";
-        return jdbcTemplate.queryForList(sql, String.class);
     }
 
     public List<TriggerMetadata> findTriggersByTableName(String tableName) {
@@ -52,7 +40,6 @@ public class TriggerRepository {
         return jdbcTemplate.query(sql, new TriggerRowMapper(), tableName.toUpperCase());
     }
 
-
     public TriggerMetadata findTriggerByName(String triggerName) {
         String sql = """
             SELECT TRIGGER_NAME, TABLE_NAME, TRIGGER_TYPE, TRIGGERING_EVENT, STATUS, TRIGGER_BODY
@@ -63,7 +50,6 @@ public class TriggerRepository {
         List<TriggerMetadata> results = jdbcTemplate.query(sql, new TriggerRowMapper(), triggerName.toUpperCase());
         return results.isEmpty() ? null : results.get(0);
     }
-
 
     public void setTriggerStatus(String triggerName, boolean enable) {
         String action = enable ? "ENABLE" : "DISABLE";
@@ -85,16 +71,6 @@ public class TriggerRepository {
         }
     }
 
-    public List<String> findAllSchemas() {
-        String sql = "SELECT DISTINCT owner FROM all_tables ORDER BY owner";
-        return jdbcTemplate.queryForList(sql, String.class);
-    }
-
-    public List<String> findTablesBySchema(String schemaName) {
-        String sql = "SELECT table_name FROM all_tables WHERE owner = ? ORDER BY table_name";
-        return jdbcTemplate.queryForList(sql, String.class, schemaName.toUpperCase());
-    }
-
     public List<Map<String, Object>> getTableColumns(String schemaName, String tableName) {
         String sql = """
         SELECT column_name, data_type, data_length, data_precision, data_scale, nullable 
@@ -105,27 +81,19 @@ public class TriggerRepository {
         return jdbcTemplate.queryForList(sql, schemaName.toUpperCase(), tableName.toUpperCase());
     }
 
-
     public List<String> findAllSchemasFiltered() {
         String sql = """
             SELECT DISTINCT owner 
             FROM all_tables 
             WHERE owner NOT IN ('SYS', 'SYSTEM', 'DBSNMP', 'OUTLN', 'XDB', 'WMSYS', 
                                 'APEX_040000', 'MDSYS', 'CTXSYS', 'ORDSYS', 'EXFSYS',
-                                'ORDDATA', 'SYSMAN', 'OLAPSYS', 'FLOWS_FILES', 'APPQOSSYS')
-            AND owner IN (
-                -- Kullanıcının kendi şeması
-                SELECT username FROM user_users
-                UNION
-                -- INSERT yetkisi olanlar
-                SELECT table_schema FROM all_tab_privs 
-                WHERE grantee = USER AND privilege = 'INSERT'
-                UNION
-                -- Rol üzerinden alınan yetkiler
-                SELECT table_schema FROM all_tab_privs 
-                WHERE grantee IN (SELECT granted_role FROM user_role_privs) 
-                AND privilege = 'INSERT'
-            )
+                                'ORDDATA', 'SYSMAN', 'OLAPSYS', 'FLOWS_FILES', 'APPQOSSYS',
+                                'APEX_PUBLIC_USER', 'DIP', 'ORACLE_OCM', 'XS$NULL', 'SPATIAL_CSW_ADMIN_USR',
+                                'SPATIAL_WFS_ADMIN_USR', 'LBACSYS', 'OWBSYS', 'OWBSYS_AUDIT', 'ANONYMOUS',
+                                'AUDSYS', 'DBSFWUSER', 'DGPDB_INT', 'DVF', 'DVSYS', 'GGSYS',
+                                'GSMADMIN_INTERNAL', 'GSMCATUSER', 'GSMUSER', 'OJVMSYS', 'PDBADMIN',
+                                'REMOTE_SCHEDULER_AGENT', 'SYSSUMF', 'SYSBACKUP', 'SYSDG', 'SYSKM',
+                                'SYSRAC', 'XS$NULL')
             ORDER BY owner
             """;
         return jdbcTemplate.queryForList(sql, String.class);

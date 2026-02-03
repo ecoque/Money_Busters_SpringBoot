@@ -27,7 +27,6 @@ public class DatabaseConnectionService {
         return jdbcTemplate.queryForObject("SELECT USER FROM DUAL", String.class);
     }
 
-
     public String getDatabaseVersion() {
         return jdbcTemplate.queryForObject("SELECT BANNER FROM V$VERSION WHERE ROWNUM = 1", String.class);
     }

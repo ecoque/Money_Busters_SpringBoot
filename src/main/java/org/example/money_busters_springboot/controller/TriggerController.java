@@ -71,7 +71,6 @@ public class TriggerController {
         }
     }
 
-
     @PostMapping("/create/{tableName}")
     public ResponseEntity<String> createInsertTrigger(
             @PathVariable String tableName,
@@ -98,9 +97,6 @@ public class TriggerController {
             return ResponseEntity.status(500).body("Hata: " + e.getMessage());
         }
     }
-
-
-
 
     @GetMapping("/generate-scripts/{tableName}")
     public ResponseEntity<Map<String, String>> getScripts(@PathVariable String tableName) {
@@ -134,6 +130,4 @@ public class TriggerController {
                 .contentType(org.springframework.http.MediaType.TEXT_PLAIN)
                 .body(content.getBytes());
     }
-
 }
-
