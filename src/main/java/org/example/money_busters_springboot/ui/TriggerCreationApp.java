@@ -10,6 +10,7 @@ import javafx.scene.image.Image;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.stage.DirectoryChooser;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import org.example.money_busters_springboot.MoneyBustersSpringBootApplication;
@@ -19,6 +20,7 @@ import org.example.money_busters_springboot.ui.Launcher;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.InputStream;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class TriggerCreationApp extends Application {
@@ -232,12 +234,57 @@ public class TriggerCreationApp extends Application {
         GridPane rbG = new GridPane(); 
         rbG.setHgap(10); 
         rbG.setVgap(10);
-        rbG.add(btn("🔄 TRG RB", "#D32F2F", "TRG_" + t + "_RB.ddl", scripts.get("rb_trg")), 0, 0);
-        rbG.add(btn("🔄 HIS RB", "#D32F2F", t + "_HIS_RB.ddl", scripts.get("rb_his")), 1, 0);
-        rbG.add(btn("🔄 SEQ RB", "#D32F2F", "SEQ_" + t + "_RB.ddl", scripts.get("rb_seq")), 0, 1);
-        rbG.add(btn("🔄 MAIN RB", "#D32F2F", t + "_RB.ddl", scripts.get("rb_main")), 1, 1);
+        rbG.add(btn("🔄 TRG RB", "#D32F2F", "TRG_" + t + "[RB].ddl", scripts.get("rb_trg")), 0, 0);
+        rbG.add(btn("🔄 HIS RB", "#D32F2F", t + "_HIS[RB].ddl", scripts.get("rb_his")), 1, 0);
+        rbG.add(btn("🔄 SEQ RB", "#D32F2F", "SEQ_" + t + "[RB].ddl", scripts.get("rb_seq")), 0, 1);
+        rbG.add(btn("🔄 MAIN RB", "#D32F2F", t + "[RB].ddl", scripts.get("rb_main")), 1, 1);
 
-        v.getChildren().addAll(new Label(exists ? "Güncelleme Yapıldı" : "Sıfırdan Oluşturuldu"), g, new Separator(), rbL, rbG);
+        // Tümünü İndir butonu
+        Map<String, String> allFiles = new LinkedHashMap<>();
+        allFiles.put(t + ".ddl", scripts.get("main"));
+        allFiles.put(t + "_HIS.ddl", scripts.get("his"));
+        allFiles.put("TRG_" + t + ".trg", scripts.get("trigger"));
+        allFiles.put("SEQ_" + t + ".ddl", scripts.get("seq"));
+        allFiles.put("TRG_" + t + "[RB].ddl", scripts.get("rb_trg"));
+        allFiles.put(t + "_HIS[RB].ddl", scripts.get("rb_his"));
+        allFiles.put("SEQ_" + t + "[RB].ddl", scripts.get("rb_seq"));
+        allFiles.put(t + "[RB].ddl", scripts.get("rb_main"));
+
+        Button downloadAllBtn = new Button("\uD83D\uDCE5 Tümünü İndir");
+        downloadAllBtn.setPrefWidth(260);
+        downloadAllBtn.setStyle(
+            "-fx-background-color: #37474F;" +
+            "-fx-text-fill: white;" +
+            "-fx-font-weight: bold;" +
+            "-fx-background-radius: 4;" +
+            "-fx-padding: 10 20;" +
+            "-fx-cursor: hand;" +
+            "-fx-font-size: 13px;"
+        );
+        downloadAllBtn.setOnAction(e -> {
+            DirectoryChooser dc = new DirectoryChooser();
+            dc.setTitle("Scriptlerin Kaydedileceği Klasörü Seçin");
+            File dir = dc.showDialog(primaryStage);
+            if (dir != null) {
+                int saved = 0;
+                for (Map.Entry<String, String> entry : allFiles.entrySet()) {
+                    if (entry.getValue() != null) {
+                        try (FileWriter fw = new FileWriter(new File(dir, entry.getKey()))) {
+                            fw.write(entry.getValue());
+                            saved++;
+                        } catch (Exception ignored) {}
+                    }
+                }
+                showAlert(Alert.AlertType.INFORMATION, "Başarılı",
+                        saved + " script dosyası kaydedildi:\n" + dir.getAbsolutePath());
+            }
+        });
+
+        HBox downloadBox = new HBox();
+        downloadBox.setAlignment(Pos.CENTER);
+        downloadBox.getChildren().add(downloadAllBtn);
+
+        v.getChildren().addAll(new Label(exists ? "Güncelleme Yapıldı" : "Sıfırdan Oluşturuldu"), g, new Separator(), rbL, rbG, new Separator(), downloadBox);
         d.getDialogPane().setContent(v); 
         d.getDialogPane().getButtonTypes().add(ButtonType.CLOSE);
 

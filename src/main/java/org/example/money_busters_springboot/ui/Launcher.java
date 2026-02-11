@@ -1,21 +1,15 @@
 package org.example.money_busters_springboot.ui;
 
 import org.example.money_busters_springboot.MoneyBustersSpringBootApplication;
+import org.example.money_busters_springboot.util.UserConfigStore;
 
 import java.awt.Taskbar;
 import java.awt.Toolkit;
 import java.net.URL;
 import javax.swing.*;
 import java.awt.*;
-import java.awt.event.FocusAdapter;
-import java.awt.event.FocusEvent;
-import java.util.Base64;
-import java.util.prefs.Preferences;
 
 public class Launcher {
-
-    private static final String PREF_LAST_USER = "last_user";
-    private static final String PREF_LAST_URL = "last_url";
 
 
     public static void main(String[] args) {
@@ -33,21 +27,18 @@ public class Launcher {
             }
         } catch (Exception ignored) {}
 
-        Preferences prefs = Preferences.userNodeForPackage(Launcher.class);
+        UserConfigStore config = UserConfigStore.load();
 
-        String defaultUrl = prefs.get(PREF_LAST_URL, "jdbc:oracle:thin:@localhost:1521/XEPDB1");
-        String lastUser = prefs.get(PREF_LAST_USER, "");
+        String defaultUrl = config.getUrl().isEmpty() ? "" : config.getUrl();
+        String lastUser = config.getUsername();
 
         String loadedPass = "";
         boolean isRemembered = false;
 
-        if (!lastUser.isEmpty()) {
-            String savedPass = prefs.get("pass_" + lastUser, "");
-            if (!savedPass.isEmpty()) {
-                try {
-                    loadedPass = new String(Base64.getDecoder().decode(savedPass));
-                    isRemembered = true;
-                } catch (Exception e) { loadedPass = ""; }
+        if (!lastUser.isEmpty() && config.isRememberMe()) {
+            loadedPass = config.getDecodedPassword();
+            if (!loadedPass.isEmpty()) {
+                isRemembered = true;
             }
         }
 
@@ -102,15 +93,17 @@ public class Launcher {
             }
 
 
-            prefs.put(PREF_LAST_URL, url);
-            prefs.put(PREF_LAST_USER, user);
+            config.setUrl(url);
+            config.setUsername(user);
 
             if (cbRemember.isSelected()) {
-                String encodedPass = Base64.getEncoder().encodeToString(pass.getBytes());
-                prefs.put("pass_" + user, encodedPass);
+                config.setRememberMe(true);
+                config.setPassword(pass);
             } else {
-                prefs.remove("pass_" + user);
+                config.setRememberMe(false);
+                config.clearPassword();
             }
+            config.save();
 
             System.setProperty("DB_URL", url);
             System.setProperty("DB_USER", user);

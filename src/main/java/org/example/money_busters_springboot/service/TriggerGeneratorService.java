@@ -30,7 +30,16 @@ public class TriggerGeneratorService {
     }
 
     public String generateSequenceDdl(String schema, String tableName) {
-        return String.format("CREATE SEQUENCE %s.SEQ_%s_HIS START WITH 1 INCREMENT BY 1", schema, tableName.toUpperCase());
+        return String.format("""
+CREATE SEQUENCE %s.SEQ_%s_HIS
+    START WITH 1
+    MAXVALUE 9999999999999999999999999999
+    MINVALUE 1
+    NOCYCLE
+  NOCACHE
+  NOORDER
+  NOKEEP
+  GLOBAL;""", schema, tableName.toUpperCase());
     }
 
     public String generateAlterTableAddColumnSql(String schema, String tableName, Map<String, Object> col) {
