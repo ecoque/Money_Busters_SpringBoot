@@ -3,7 +3,7 @@
   <dontWrapJar>false</dontWrapJar>
   <headerType>gui</headerType>
   <jar>C:\Users\kerim\IdeaProjects\Money_Busters_SpringBoot\target\MoneyBusters.jar</jar>
-  <outfile>C:\Users\kerim\IdeaProjects\Money_Busters_SpringBoot\MoneyBusters.exe</outfile>
+  <outfile>C:\Users\kerim\IdeaProjects\Money_Busters_SpringBoot\Money_Busters_v2.exe</outfile>
   <errTitle></errTitle>
   <cmdLine></cmdLine>
   <chdir>.</chdir>

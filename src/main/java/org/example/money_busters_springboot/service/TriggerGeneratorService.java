@@ -39,7 +39,7 @@ CREATE SEQUENCE %s.SEQ_%s_HIS
   NOCACHE
   NOORDER
   NOKEEP
-  GLOBAL;""", schema, tableName.toUpperCase());
+  GLOBAL""", schema, tableName.toUpperCase());
     }
 
     public String generateAlterTableAddColumnSql(String schema, String tableName, Map<String, Object> col) {
